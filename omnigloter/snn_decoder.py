@@ -672,7 +672,7 @@ class Decoder(object):
         max_w = ind_par['out_weight'] / exp_size
 
         conn_list = utils.output_connection_list(pre.size, post.size, prob,
-                                                 max_w, 1.0# , seed=123
+                                                 max_w, 0.1,max_pre=1000# , seed=123
                                                 )
 
         tdeps = {k: ind_par[k] if k in ind_par else config.TIME_DEP_VARS[k] \
