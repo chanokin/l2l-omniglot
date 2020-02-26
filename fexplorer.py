@@ -23,10 +23,14 @@ GRADDESC, EVOSTRAT, GENALG = range(3)
 #OPTIMIZER = EVOSTRAT
 #OPTIMIZER = GRADDESC
 OPTIMIZER = GENALG
-ON_JEWELS = bool(1)
+ON_JUWELS = bool(1)
 USE_MPI = bool(0)
-MULTIPROCESSING = (ON_JEWELS or USE_MPI or bool(0))
-NUM_SIMS = 10 if ON_JEWELS else 1
+MULTIPROCESSING = (ON_JUWELS or USE_MPI or bool(0)) and (not config.DEBUG)
+NUM_SIMS = 1
+if ON_JUWELS:
+    NUM_SIMS = 10
+elif config.DEBUG:
+    NUM_SIMS = 4
 
 def main():
 
@@ -96,7 +100,7 @@ def main():
     # The execution command
     run_filename = os.path.join(paths.root_dir_path, "run_files","run_optimizee.py")
     command = "python3 {}".format(run_filename)
-    if ON_JEWELS and not USE_MPI:
+    if ON_JUWELS and not USE_MPI:
         # -N num nodes
         # -t exec time (mins)
         # -n num sub-procs
@@ -118,6 +122,7 @@ def main():
 
     traj.f_add_parameter_group("simulation", "Contains JUBE parameters")
     traj.f_add_parameter_to_group("simulation", 'num_sims', NUM_SIMS)  # ms
+    traj.f_add_parameter_to_group("simulation", 'on_juwels', ON_JUWELS)  # ms
     traj.f_add_parameter_to_group("simulation", 'steps', config.STEPS)  # ms
     traj.f_add_parameter_to_group("simulation", 'duration', config.DURATION)  # ms
     traj.f_add_parameter_to_group("simulation", 'sample_dt', config.SAMPLE_DT)  # ms
@@ -161,6 +166,8 @@ def main():
     # dbs = ['Braille']
     # dbs = ['Blackfoot_-Canadian_Aboriginal_Syllabics-', 'Gujarati', 'Syriac_-Estrangelo-']
     # dbs = ['Cyrillic', 'Futurama', 'Braille']
+    if config.DEBUG:
+        dbs = ['Braille']
 
     traj.f_add_parameter_to_group("simulation", 'database', dbs)
 

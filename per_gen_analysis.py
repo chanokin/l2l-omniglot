@@ -47,10 +47,12 @@ def plot_input_spikes(in_spikes, start_t, total_t, dt=1.0, img_shape=(28, 28), i
 
 if len(sys.argv) == 1:
     input_path = os.path.abspath('./L2L-OMNIGLOT/run_results')
-    base_dir = input_path
+
 else:
     input_path = os.path.abspath(sys.argv[1])
-    base_dir = os.path.abspath('.')
+    # base_dir = os.path.abspath('.')
+
+base_dir = input_path
 
 result_files = sorted(glob(os.path.join(input_path, 'data_*.npz')))
 

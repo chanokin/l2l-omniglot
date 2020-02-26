@@ -68,13 +68,6 @@ class Decoder(object):
         logging.info("\n\nCurrent time is: {}\n".format(datetime.datetime.now()))
 
         logging.info("Setting up simulator")
-        sim.setup(self._network['timestep'],
-                  self._network['min_delay'],
-                  model_name=self.name,
-                  backend=config.BACKEND,
-                  #selected_gpu_id=int(params['gen']['ind']%4)
-                  selected_gpu_id=None
-                )
 
         setup_args = {
             'timestep': self._network['timestep'],
@@ -84,7 +77,10 @@ class Decoder(object):
         if config.SIM_NAME == config.GENN:
             setup_args['model_name'] = self.name
             setup_args['backend'] = config.BACKEND
-            setup_args['selected_gpu_id'] = config.GPU_ID
+            if params['sim']['on_juwels']:
+                setup_args['selected_gpu_id'] = None
+            else:
+                setup_args['selected_gpu_id'] = config.GPU_ID
 
         sim.setup(**setup_args)
 
