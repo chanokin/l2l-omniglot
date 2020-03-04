@@ -57,9 +57,8 @@ def main():
                               log_directory=paths.logs_path)
     configure_loggers()
 
-
-
-    trajectories = load_last_trajs(os.path.join(paths.root_dir_path,'trajectories'))
+    trajectories = load_last_trajs(os.path.join(paths.output_dir_path, 'per_gen_trajectories'))
+    # trajectories = load_last_trajs(os.path.join(paths.root_dir_path,'trajectories'))
 
     # env.trajectory.individuals[0] = trajectories
 
