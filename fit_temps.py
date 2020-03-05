@@ -22,7 +22,7 @@ GRADDESC, EVOSTRAT, GENALG = range(3)
 #OPTIMIZER = GRADDESC
 OPTIMIZER = GENALG
 ON_JEWELS = bool(0)
-USE_MPI = bool(1)
+USE_MPI = bool(0)
 MULTIPROCESSING = (ON_JEWELS or USE_MPI or bool(0))
 
 def main():
@@ -39,9 +39,16 @@ def main():
     os.makedirs(paths.output_dir_path, exist_ok=True)
     print("Trajectory file is: {}".format(traj_file))
 
+    trajectories = load_last_trajs(os.path.join(paths.output_dir_path, 'per_gen_trajectories'))
+    if len(trajectories):
+        k = trajectories['generation']
+        traj = trajectories[k]
+    else:
+        traj = name
+
     # Create an environment that handles running our simulation
     # This initializes an environment
-    env = Environment(trajectory=name,
+    env = Environment(trajectory=traj,
                       filename=traj_file,
                       file_title="{} data".format(name),
                       comment="{} data".format(name),
@@ -57,7 +64,7 @@ def main():
                               log_directory=paths.logs_path)
     configure_loggers()
 
-    trajectories = load_last_trajs(os.path.join(paths.output_dir_path, 'per_gen_trajectories'))
+
     # trajectories = load_last_trajs(os.path.join(paths.root_dir_path,'trajectories'))
 
     # env.trajectory.individuals[0] = trajectories
@@ -65,78 +72,81 @@ def main():
     # Get the trajectory from the environment
     traj = env.trajectory
 
-    # Set JUBE params
-    traj.f_add_parameter_group("JUBE_params", "Contains JUBE parameters")
+    if len(trajectories) == 0:
 
-    # Scheduler parameters
-    # Name of the scheduler
-    # traj.f_add_parameter_to_group("JUBE_params", "scheduler", "Slurm")
+        # Set JUBE params
+        traj.f_add_parameter_group("JUBE_params", "Contains JUBE parameters")
 
-    # Command to submit jobs to the schedulers
-    # traj.f_add_parameter_to_group("JUBE_params", "submit_cmd", "sbatch")
+        # Scheduler parameters
+        # Name of the scheduler
+        # traj.f_add_parameter_to_group("JUBE_params", "scheduler", "Slurm")
 
-    # Template file for the particular scheduler
-    traj.f_add_parameter_to_group("JUBE_params", "job_file", "job.run")
-    # Number of nodes to request for each run
-    traj.f_add_parameter_to_group("JUBE_params", "nodes", "1")
-    # Requested time for the compute resources
-    traj.f_add_parameter_to_group("JUBE_params", "walltime", "00:10:00")
-    # MPI Processes per node
-    traj.f_add_parameter_to_group("JUBE_params", "ppn", "1")
-    # CPU cores per MPI process
-    traj.f_add_parameter_to_group("JUBE_params", "cpu_pp", "1")
-    # Threads per process
-    traj.f_add_parameter_to_group("JUBE_params", "threads_pp", "1")
-    # Type of emails to be sent from the scheduler
-    traj.f_add_parameter_to_group("JUBE_params", "mail_mode", "ALL")
-    # Email to notify events from the scheduler
-    traj.f_add_parameter_to_group("JUBE_params", "mail_address", "g.pineda-garcia@sussex.ac.uk")
-    # Error file for the job
-    traj.f_add_parameter_to_group("JUBE_params", "err_file", "stderr")
-    # Output file for the job
-    traj.f_add_parameter_to_group("JUBE_params", "out_file", "stdout")
-    # JUBE parameters for multiprocessing. Relevant even without scheduler.
-    # MPI Processes per job
-    traj.f_add_parameter_to_group("JUBE_params", "tasks_per_job", "1")
+        # Command to submit jobs to the schedulers
+        # traj.f_add_parameter_to_group("JUBE_params", "submit_cmd", "sbatch")
+
+        # Template file for the particular scheduler
+        traj.f_add_parameter_to_group("JUBE_params", "job_file", "job.run")
+        # Number of nodes to request for each run
+        traj.f_add_parameter_to_group("JUBE_params", "nodes", "1")
+        # Requested time for the compute resources
+        traj.f_add_parameter_to_group("JUBE_params", "walltime", "00:10:00")
+        # MPI Processes per node
+        traj.f_add_parameter_to_group("JUBE_params", "ppn", "1")
+        # CPU cores per MPI process
+        traj.f_add_parameter_to_group("JUBE_params", "cpu_pp", "1")
+        # Threads per process
+        traj.f_add_parameter_to_group("JUBE_params", "threads_pp", "1")
+        # Type of emails to be sent from the scheduler
+        traj.f_add_parameter_to_group("JUBE_params", "mail_mode", "ALL")
+        # Email to notify events from the scheduler
+        traj.f_add_parameter_to_group("JUBE_params", "mail_address", "g.pineda-garcia@sussex.ac.uk")
+        # Error file for the job
+        traj.f_add_parameter_to_group("JUBE_params", "err_file", "stderr")
+        # Output file for the job
+        traj.f_add_parameter_to_group("JUBE_params", "out_file", "stdout")
+        # JUBE parameters for multiprocessing. Relevant even without scheduler.
+        # MPI Processes per job
+        traj.f_add_parameter_to_group("JUBE_params", "tasks_per_job", "1")
 
 
-    # The execution command
-    run_filename = os.path.join(paths.root_dir_path, "run_files/run_optimizee.py")
-    command = "python3 {}".format(run_filename)
-    if ON_JEWELS and not USE_MPI:
-        # -N num nodes
-        # -t exec time (mins)
-        # -n num sub-procs
-        command = "srun -t 15 -N 1 -n 4 -c 1 --gres=gpu:1 {}".format(command)
-    elif USE_MPI:
-        command = "MPIEXEC_TIMEOUT={} mpiexec -bind-to none -np 1 {}".format(60, command)
+        # The execution command
+        run_filename = os.path.join(paths.root_dir_path, "run_files/run_optimizee.py")
+        command = "python3 {}".format(run_filename)
+        if ON_JEWELS and not USE_MPI:
+            # -N num nodes
+            # -t exec time (mins)
+            # -n num sub-procs
+            command = "srun -t 15 -N 1 -n 4 -c 1 --gres=gpu:1 {}".format(command)
+        elif USE_MPI:
+            command = "MPIEXEC_TIMEOUT={} mpiexec -bind-to core -np 1 {}".format(60, command)
 
-    traj.f_add_parameter_to_group("JUBE_params", "exec", command)
+        traj.f_add_parameter_to_group("JUBE_params", "exec", command)
 
-    # Ready file for a generation
-    traj.f_add_parameter_to_group("JUBE_params", "ready_file",
-                                  os.path.join(paths.root_dir_path, "readyfiles/ready_w_"))
-    # Path where the job will be executed
-    traj.f_add_parameter_to_group("JUBE_params", "work_path", paths.root_dir_path)
+        # Ready file for a generation
+        traj.f_add_parameter_to_group("JUBE_params", "ready_file",
+                                      os.path.join(paths.root_dir_path, "readyfiles/ready_w_"))
+        # Path where the job will be executed
+        traj.f_add_parameter_to_group("JUBE_params", "work_path", paths.root_dir_path)
 
-    ### Maybe we should pass the Paths object to avoid defining paths here and there
-    traj.f_add_parameter_to_group("JUBE_params", "paths_obj", paths)
+        ### Maybe we should pass the Paths object to avoid defining paths here and there
+        traj.f_add_parameter_to_group("JUBE_params", "paths_obj", paths)
 
-    csv = open('./temperature/temperature-anomaly.csv', 'r')
-    temps = []
-    years = []
-    for i, line in enumerate(csv):
-        sp = line.split(',')
-        if sp[0] == 'Global':
-            temps.append(float(sp[3]))
-            years.append(float(sp[2]))
-        if sp[0].startswith('Northern'):
-            break
-    csv.close()
+        csv = open('./temperature/temperature-anomaly.csv', 'r')
+        temps = []
+        years = []
+        for i, line in enumerate(csv):
+            sp = line.split(',')
+            if sp[0] == 'Global':
+                temps.append(float(sp[3]))
+                years.append(float(sp[2]))
+            if sp[0].startswith('Northern'):
+                break
+        csv.close()
 
-    traj.f_add_parameter_group("simulation", "Contains JUBE parameters")
-    traj.f_add_parameter_to_group("simulation", 'target', temps)  # ms
-    traj.f_add_parameter_to_group("simulation", 'years', years)
+        traj.f_add_parameter_group("simulation", "Contains JUBE parameters")
+        traj.f_add_parameter_to_group("simulation", 'target', temps)  # ms
+        traj.f_add_parameter_to_group("simulation", 'years', years)
+
     ## Innerloop simulator
     optimizee = FitOptimizee(traj, 1234)
 
@@ -148,24 +158,24 @@ def main():
 
 
     fit_weights = [1.0,]# 0.1]
-    num_generations = 50#000
-    population_size = 20
+    num_generations = 5000
+    population_size = 200
     # population_size = 5
 
 
-    if len(trajectories):
-        traj.individuals = trajectories_to_individuals(
-                                trajectories, population_size, optimizee)
+    # if len(trajectories):
+    #     traj.individuals = trajectories_to_individuals(
+    #                             trajectories, population_size, optimizee)
 
-    parameters = GeneticAlgorithmParameters(seed=0,
+    parameters = GeneticAlgorithmParameters(seed=None,
                     popsize=population_size,
                     CXPB=0.5, # probability of mating 2 individuals
                     MUTPB=0.8, # probability of individual to mutate
                     NGEN=num_generations,
                     indpb=0.1, # probability of "gene" to mutate
-                    tournsize=100, # number of best individuals to mate
+                    tournsize=population_size, # number of best individuals to mate
                     matepar=0.5, # how much to mix two genes when mating
-                    mutpar=2.0/4.0, #standard deviations for normal distribution
+                    mutpar=1.#2.0/4.0, #standard deviations for normal distribution
                     )
 
     optimizer = GeneticAlgorithmOptimizer(traj,

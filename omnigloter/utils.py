@@ -583,6 +583,11 @@ def load_last_trajs(path):
                                     for k in last_fnames}
 
     trajs['generation'] = max_gen
+    for k in trajs.keys():
+        if k == 'generation':
+            continue
+
+        trajs[k].par['generation'] = k
 
     return trajs
 

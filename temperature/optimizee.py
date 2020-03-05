@@ -78,8 +78,8 @@ class FitOptimizee(Optimizee):
         generation = traj.individual.generation
 
         for i in range(1):
-            print("generation, ind_idx = (%s, %s)\tt = %02d"%(generation, ind_idx, i))
-            time.sleep(1)
+            # print("generation, ind_idx = (%s, %s)\tt = %02d"%(generation, ind_idx, i))
+            time.sleep(0.01)
 
         ipr = self.ind_param_ranges
         ind_params = {k: getattr(traj.individual, k) for k in ipr}
