@@ -49,9 +49,16 @@ def main():
     os.makedirs(paths.output_dir_path, exist_ok=True)
     print("Trajectory file is: {}".format(traj_file))
 
+    trajectories = load_last_trajs(os.path.join(paths.output_dir_path, 'per_gen_trajectories'))
+    if len(trajectories):
+        k = trajectories['generation']
+        traj = trajectories[k]
+    else:
+        traj = name
+
     # Create an environment that handles running our simulation
     # This initializes an environment
-    env = Environment(trajectory=name,
+    env = Environment(trajectory=traj,
                       filename=traj_file,
                       file_title="{} data".format(name),
                       comment="{} data".format(name),
@@ -231,11 +238,11 @@ def main():
         # population_size = 5
         p_hof = 0.2 if population_size < 100 else 0.1
         p_bob = 0.5
-        last_trajs = load_last_trajs(os.path.join(paths.output_dir_path, 'per_gen_trajectories'))
+        # last_trajs = load_last_trajs(os.path.join(paths.output_dir_path, 'per_gen_trajectories'))
         # last_trajs = load_last_trajs(os.path.join(paths.root_dir_path, 'trajectories'))
-        if len(last_trajs):
-            traj.individuals = trajectories_to_individuals(
-                last_trajs, population_size, optimizee)
+        # if len(last_trajs):
+        #     traj.individuals = trajectories_to_individuals(
+        #         last_trajs, population_size, optimizee)
         attr_steps = [config.ATTR_STEPS[k[0]] for k in dict_spec]
         parameters = GeneticAlgorithmParameters(seed=None,
                         popsize=population_size,
