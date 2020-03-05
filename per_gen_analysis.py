@@ -70,7 +70,7 @@ with np.load(result_files[0], allow_pickle=True) as tmp:
 
 
 # print(data.keys())
-pkeys = [k for k in data['params']['ind'].keys() \
+pkeys = [k for k in sorted(data['params']['ind'].keys()) \
                             if not (k == 'w_max_mult')]
 
 
@@ -158,9 +158,9 @@ minimum = []
 maximum = []
 average = []
 for g in fitnesses:
-    minimum.append(np.min(fitnesses[g]))
-    maximum.append(np.max(fitnesses[g]))
-    average.append(np.mean(fitnesses[g]))
+    minimum.append(np.min(np.clip(fitnesses[g], 0, np.inf)))
+    maximum.append(np.max(np.clip(fitnesses[g], 0, np.inf)))
+    average.append(np.mean(np.clip(fitnesses[g], 0, np.inf)))
 
 #####################################################################
 #####################################################################
@@ -171,7 +171,7 @@ fig = plt.figure(figsize=(fw*np.sqrt(2), fw))
 ax = plt.subplot(1, 1, 1)
 
 for g in fitnesses:
-    plt.plot(g * np.ones_like(fitnesses[g]), fitnesses[g], '.b', alpha=0.1)
+    plt.plot(g * np.ones_like(fitnesses[g]), np.clip(fitnesses[g],0, np.inf), '.b', alpha=0.1)
 
 plt.plot(np.asarray(maximum), '^', linestyle=':', label='max')
 plt.plot(np.asarray(average), 'o', linestyle='-', label='avg')
@@ -239,6 +239,8 @@ plt.savefig(os.path.join(base_dir, fname))
 #####################################################################
 
 scores = np.asarray(all_scores)
+argsort = np.argsort(scores)
+
 n_params = len(pkeys)
 n_figs = comb(n_params, 2)
 n_cols = 3
@@ -247,23 +249,28 @@ fw = 5.0
 fig = plt.figure(figsize=(fw * n_cols * 1.25, fw * n_rows))
 plt_idx = 1
 accum_params = {k: [] for k in pkeys}
-for g in sorted(all_params.keys()):
+for g in all_params:
     for ind in all_params[g]:
         for k in ind:
             accum_params[k].append(ind[k])
-
+alpha = np.clip(scores, 0, np.inf)
+alpha = alpha / (1.0 + alpha)
 for i in range(n_params):
     for j in range(i + 1, n_params):
+        i_params = np.asarray(accum_params[pkeys[i]])
+        j_params = np.asarray(accum_params[pkeys[j]])
         ax = plt.subplot(n_rows, n_cols, plt_idx)
-        im = plt.scatter(accum_params[pkeys[i]], accum_params[pkeys[j]],
-                         c=scores,
-#                           s=(100.0 - scores)+ 5.0,
-#                           s=scores + 5.0,
-                         vmin=0.0, vmax=1.0,
-                         cmap='Spectral',
-                         #  alpha=0.15
-                         #
-                         )
+        im = plt.scatter(i_params[argsort], j_params[argsort],
+                c=scores[argsort],
+                s= alpha[argsort] * 100.0,
+#                 s=(100.0 - scores)+ 5.0,
+#                 s=scores + 5.0,
+                vmin=0.0, vmax=1.0,
+                cmap='Spectral',
+#                 alpha=0.7,
+                linewidths=0,
+                edgecolors='none',
+        )
         plt.colorbar(im)
 
         ax.set_xlabel(pkeys[i])

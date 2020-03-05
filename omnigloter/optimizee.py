@@ -34,7 +34,7 @@ class OmniglotOptimizee(Optimizee):
 
         print("In OmniglotOptimizee:")
         print(self.ind_param_ranges)
-        print(self.sim_params)
+#         print(self.sim_params)
 
     def create_individual(self):
         ipr = self.ind_param_ranges
@@ -62,9 +62,12 @@ class OmniglotOptimizee(Optimizee):
         #    - return the winning fitness
         #  This will (temporarily) increase the population size
         #  and help explore the parameter space faster.
+        n_sims = self.sim_params['num_sims']
+        if n_sims == 1:
+            return self.simulate_one(traj)
+
         n_params = len(traj.individual.keys)
         p_change = 1.0/n_params
-        n_sims = self.sim_params['num_sims']
         original_ind_idx = copy.copy(traj.individual.ind_idx)
         ipr = self.ind_param_ranges
         q = Queue()
@@ -72,7 +75,7 @@ class OmniglotOptimizee(Optimizee):
         n_inds = len(traj.individuals[0])
         for tid, t in enumerate(trajs):
             new_ind_idx = t.individual.ind_idx
-            new_ind_idx *= n_inds
+            new_ind_idx *= n_sims
             new_ind_idx += tid
             t.individual.ind_idx = new_ind_idx
 
@@ -82,7 +85,7 @@ class OmniglotOptimizee(Optimizee):
             for k in t.individual.keys:
                 if np.random.uniform(0., 1.) <= p_change:
                     print(tid, k)
-                    dv = np.random.normal(0., 0.1)
+                    dv = np.random.normal(0., 1.0)
                     k = k.split('.')[1]
                     v = utils.bound(
                             getattr(t.individual, k) + dv,
@@ -132,12 +135,12 @@ class OmniglotOptimizee(Optimizee):
 
         bench_start_t = time.time()
         ipr = self.ind_param_ranges
-        for k in traj.par:
-            try:
-                print("{}:".format(k))
-                print("\t{}\n".format(traj.par[k]))
-            except:
-                print("\tNOT FOUND!\n")
+#        for k in traj.par:
+#            try:
+#                print("{}:".format(k))
+#                print("\t{}\n".format(traj.par[k]))
+#            except:
+#                print("\tNOT FOUND!\n")
 
         n_out = self.sim_params['output_size']
         n_test = self.sim_params['test_per_class']
@@ -150,8 +153,8 @@ class OmniglotOptimizee(Optimizee):
         generation = traj.individual.generation
         name = 'gen{:010d}_ind{:010d}'.format(generation, ind_idx)
         ind_params = {k: getattr(traj.individual, k) for k in ipr}
-        print("ind_params:")
-        print(ind_params)
+#        print("ind_params:")
+#        print(ind_params)
         params = {
             'ind': ind_params,
             'sim': self.sim_params,
@@ -163,10 +166,10 @@ class OmniglotOptimizee(Optimizee):
 
         print("\n\nExperiment took {} seconds\n".format(time.time() - bench_start_t))
 
-        if data['died']:
-            print(data['recs'])
+#         if data['died']:
+#             print(data['recs'])
 
-        vmin = -1.0 if data['died'] else 0.0
+        vmin = -1.0 if data['died'] else -0.5
         diff_class_vectors = []
         diff_class_distances = []
         diff_class_fitness = vmin
@@ -190,11 +193,11 @@ class OmniglotOptimizee(Optimizee):
             start_t = end_t - n_class * n_test * dt
             apc, ipc = analysis.spiking_per_class(labels, out_spikes, start_t, end_t, dt)
 
-            print("\n\n\napc")
-            print(apc)
+            # print("\n\n\napc")
+            # print(apc)
 
-            print("\nipc")
-            print(ipc)
+            # print("\nipc")
+            # print(ipc)
 
             diff_class_vectors = analysis.diff_class_vectors(apc, n_out)
             # punish inactivity on output cells,
@@ -202,6 +205,7 @@ class OmniglotOptimizee(Optimizee):
             # the output population
             any_zero, all_zero = analysis.any_all_zero(apc, ipc)
 
+        print("any_zero, all_zero = {}, {}".format(any_zero, all_zero))
         if not all_zero:
             diff_class_distances = analysis.diff_class_dists(diff_class_vectors)
             diff_class_overlap = analysis.overlap_score(apc, n_out)
@@ -215,11 +219,12 @@ class OmniglotOptimizee(Optimizee):
             # invert (1 - x) so that 0 == bad and 1 == good
             diff_class_fitness = 1.0 - np.mean(diff_class_distances)
 
-            same_fitnesses = np.asarray([ np.sum(same_class_distances[c])
+            same_fitnesses = np.asarray([ np.mean(same_class_distances[c])
                                     for c in sorted(same_class_distances.keys()) ])
 
             # 0 means orthogonal vector == bad for same class activity
-            same_class_fitness = np.sum(same_fitnesses) / (n_class * n_test)
+            # same_class_fitness = np.sum(same_fitnesses) / (n_class * n_test)
+            same_class_fitness = np.mean(same_fitnesses)
             print("same fitness ", same_class_fitness)
 
 
@@ -234,8 +239,11 @@ class OmniglotOptimizee(Optimizee):
                 'overlap_dist': diff_class_overlap,
                 'class_dist': diff_class_repr,
                 'weights': {
-                    'overlap_dist': 0.3,
-                    'class_dist': 0.4,
+                    #overlapping activity is present
+                    'overlap_dist': 0.4,
+                    #how many classes are represented
+                    'class_dist': 0.3,
+                    # different class distance
                     'fitness': 0.2,
                 },
             },
@@ -245,11 +253,13 @@ class OmniglotOptimizee(Optimizee):
                 'distances': same_class_distances,
                 'fitness': same_class_fitness,
                 'weights': {
+                    # same class distance
                     'fitness': 0.1,
                 },
             },
 
         }
+
 
         # overlap of output vectors, ideally should be 0, so we inverted the average
         woverlap = data['analysis']['aggregate_per_class']['weights']['overlap_dist']
@@ -258,6 +268,7 @@ class OmniglotOptimizee(Optimizee):
         # cosine distance between output vectors, 1 is bad so we inverted the average
         wdiff = data['analysis']['aggregate_per_class']['weights']['fitness']
         # cosine distance between output vectors per class, 1 is bad so we inverted the average
+        data['analysis']['individual_per_class']['weights']['fitness'] = 1.0 - woverlap - wclass - wdiff
         wsame = data['analysis']['individual_per_class']['weights']['fitness']
 
         fit0 = woverlap * data['analysis']['aggregate_per_class']['overlap_dist'] + \
@@ -285,7 +296,8 @@ class OmniglotOptimizee(Optimizee):
         del params
 
         gc.collect()
-        print("Done running simulation")
+        print("Fitness {}".format(fit0))
+        print("Done running simulation\n\n\n")
 
         if queue is not None:
             queue.put([fit0])

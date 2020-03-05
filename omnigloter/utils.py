@@ -2,6 +2,7 @@ import numpy as np
 import os
 import sys
 import glob
+import copy
 
 HEIGHT, WIDTH = range(2)
 ROWS, COLS = HEIGHT, WIDTH
@@ -564,35 +565,40 @@ def split_ssa(ssa, n_steps, duration, round_times):
 
 def load_last_trajs(path):
     import pickle
-    def g_i(txt):
+    def g(txt):
         x = os.path.basename(txt).split('.bin')[0]
-        ind, gen = [int(n) for n in x.split('_')[-2:]]
-        return [gen, ind]
+        return int( x.split('_')[-1] )
 
     files = glob.glob(os.path.join(path, '*.bin'))
 
     if not files:
         return {}
 
-    gen_inds = np.asarray([g_i(f) for f in files])
-    max_gen = np.max(gen_inds[:, 0])
-    rows = np.where(gen_inds[:, 0] == max_gen)[0]
-    last_fnames = {gen_inds[r, 1]: files[r] for r in rows}
+    gens = np.asarray([g(f) for f in files])
+    max_gen = np.max(gens)
+    rows = np.where(gens == max_gen)[0]
+    last_fnames = {gens[r]: files[r] for r in rows}
 
     trajs = {k: pickle.load(open(last_fnames[k], 'rb'))\
                                     for k in last_fnames}
 
     trajs['generation'] = max_gen
+    for k in trajs.keys():
+        if k == 'generation':
+            continue
+
+        trajs[k].par['generation'] = k
 
     return trajs
 
 def trajectories_to_individuals(trajs, target_number, optimizee, generation=-1):
-    ind_ids = sorted( [k for k in trajs if k != 'generation'] )
-    inds = [trajs[i].individual for i in ind_ids]
-    max_id = np.max(ind_ids)
-    if len(ind_ids) < target_number:
+    gen = sorted( [k for k in trajs if k != 'generation'] )[-1]
+    inds = trajs[gen].individuals[gen]
+    max_id = len(inds)
+    n_inds = len(inds)
+    if n_inds < target_number:
         from l2l.utils.individual import Individual
-        for i in range(target_number - len(ind_ids)):
+        for i in range(target_number - n_inds):
             zee = optimizee.bounding_func(
                     optimizee.create_individual())
             ind_idx = max_id + i + 1

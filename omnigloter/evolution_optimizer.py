@@ -27,6 +27,12 @@ GeneticAlgorithmParameters.__doc__ = """
 :param matepar: Paramter used for blending two values during mating
 """
 
+def str_ind(d):
+    s = ""
+    for k in sorted(d.keys()):
+        s += "{}: {:10.4f}, ".format(k, d[k])
+
+    return "{%s}"%( s[:-2] )
 
 class GeneticAlgorithmOptimizer(Optimizer):
     """
@@ -47,8 +53,7 @@ class GeneticAlgorithmOptimizer(Optimizer):
                  parameters,
                  optimizee_bounding_func=None,
                  percent_hall_of_fame=0.2,
-                 percent_elite=0.4,
-                 load_last_trajectories=True):
+                 percent_elite=0.4,):
 
         super().__init__(traj,
                          optimizee_create_individual=optimizee_create_individual,
@@ -58,12 +63,11 @@ class GeneticAlgorithmOptimizer(Optimizer):
         __, self.optimizee_individual_dict_spec = \
             dict_to_list(optimizee_create_individual(), get_dict_spec=True)
         self.optimizee_create_individual = optimizee_create_individual
-        traj.f_add_parameter('seed', parameters.seed, comment='Seed for RNG')
 
-        if len(traj.individuals):
-            popsize = max(parameters.popsize, len(traj.individuals[-1]))
-        else:
-            popsize = parameters.popsize
+        # if not len(traj.individuals):
+        popsize = parameters.popsize
+
+        traj.f_add_parameter('seed', parameters.seed, comment='Seed for RNG')
 
         traj.f_add_parameter('popsize', popsize, comment='Population size')  # 185
         traj.f_add_parameter('CXPB', parameters.CXPB, comment='Crossover term')
@@ -114,35 +118,61 @@ class GeneticAlgorithmOptimizer(Optimizer):
         # NOTE: The Individual object implements the list interface.
 
         self.pop = toolbox.population(n=traj.popsize)
+            # traj.individuals.clear()
+        self.n_hof = int(max(percent_hall_of_fame * traj.popsize, 2))
+        self.n_bobs = int(max(1, percent_elite * self.n_hof))
 
-        if load_last_trajectories:
+        self.hall_of_fame = HallOfFame(self.n_hof)
+
+        if len(traj.individuals):
             self._load_last_trajectories(traj)
-
-            traj.individuals.clear()
+            self.hall_of_fame.update(self.pop)
+            bob_inds = tools.selBest(self.hall_of_fame, self.n_bobs)
+            for hof_ind in bob_inds:
+                sind = str_ind(
+                    list_to_dict(hof_ind, self.optimizee_individual_dict_spec)
+                )
+                logger.info("HOF individual is %s, \n%s" % (
+                    sind, hof_ind.fitness.values))
+                # print("HOF individual is %s, %s" % (
+                #         hof_ind, hof_ind.fitness.values))
+                print("Starting BoB individual is %s, \n%s" % (
+                    sind, hof_ind.fitness.values))
+            self._delete_initial_fitnesses()
 
         self.eval_pop_inds = [ind for ind in self.pop if not ind.fitness.valid]
         self.eval_pop = [list_to_dict(ind, self.optimizee_individual_dict_spec)
                          for ind in self.eval_pop_inds]
 
-        self.g = 0  # the current generation
+        if len(traj.individuals):
+            g = np.max(list(traj.individuals.keys()))
+        else:
+            g = 0
+
+        self.g = g  # the current generation
         self.toolbox = toolbox  # the DEAP toolbox
-        self.n_hof = int(max(percent_hall_of_fame * traj.popsize, 2))
-        self.n_bobs = int(max(1, percent_elite * self.n_hof))
-        self.hall_of_fame = HallOfFame(self.n_hof)
 
         self._expand_trajectory(traj)
+        x = traj
+
+    def _delete_initial_fitnesses(self):
+        for ind in self.pop:
+            del ind.fitness.values
 
     def _load_last_trajectories(self, traj):
         if not len(traj.individuals):
             return
-        g = -1
-        if g in traj.individuals:
-            for idx, ind in enumerate(traj.individuals[g]):
-                for k_idx, k in enumerate(sorted(ind.keys)):
-                    sk = k.split('.')[-1]
-                    v = getattr(ind, sk)
-                    self.pop[idx][k_idx] = v
-                    del self.pop[idx].fitness.values
+        g = np.max(list(traj.individuals.keys()))
+        res = traj.results._data['all_results']._data[g]
+        for idx, ind in enumerate(traj.individuals[g]):
+            for k_idx, k in enumerate(sorted(ind.keys)):
+                sk = k.split('.')[-1]
+                v = getattr(ind, sk)
+                self.pop[idx][k_idx] = v
+
+            self.pop[idx].fitness.values = res[idx][1]
+            x = self.pop[idx]
+            # del self.pop[idx].fitness.values
 
     def post_process(self, traj, fitnesses_results):
         """
@@ -160,10 +190,15 @@ class GeneticAlgorithmOptimizer(Optimizer):
         logger.info("  Evaluating %i individuals" % len(fitnesses_results))
         print("  Evaluating %i individuals" % len(fitnesses_results))
 
-        #**************************************************************************************************************
+        #******************************************************************
         # Storing run-information in the trajectory
         # Reading fitnesses and performing distribution update
-        #**************************************************************************************************************
+        #******************************************************************
+        # print("self.g = {}".format(self.g))
+        # print("len(self.eval_pop_inds) = {}".format(len(self.eval_pop_inds)))
+        # print("len(self.eval_pop) = {}".format(len(self.eval_pop)))
+        # print("len(fitnesses_results) = {}".format(len(fitnesses_results)))
+
         for run_index, fitness in fitnesses_results:
             # We need to convert the current run index into an ind_idx
             # (index of individual within one generation)
@@ -193,16 +228,22 @@ class GeneticAlgorithmOptimizer(Optimizer):
 
         logger.info("-- Hall of fame --")
         n_bobs = self.n_bobs
-        for hof_ind in tools.selBest(self.hall_of_fame, n_bobs):
-            logger.info("HOF individual is %s, %s" % (
-                list_to_dict(hof_ind, self.optimizee_individual_dict_spec),
-                hof_ind.fitness.values))
-            print("HOF individual is %s, %s" % (
-                list_to_dict(hof_ind, self.optimizee_individual_dict_spec),
-                hof_ind.fitness.values))
 
         bob_inds = tools.selBest(self.hall_of_fame, n_bobs)
+
+        for hof_ind in bob_inds:
+            sind = str_ind(
+                list_to_dict(hof_ind, self.optimizee_individual_dict_spec)
+            )
+            logger.info("BoB individual is %s,\n %s" % (
+                sind, hof_ind.fitness.values))
+            # print("HOF individual is %s, %s" % (
+            #         hof_ind, hof_ind.fitness.values))
+            print("BoB individual is %s,\n %s" % (
+                sind, hof_ind.fitness.values))
+
         bob_inds = list(map(self.toolbox.clone, bob_inds))
+
 
         # ------- Create the next generation by crossover and mutation -------- #
         if self.g < NGEN - 1:  # not necessary for the last generation
@@ -267,15 +308,14 @@ class GeneticAlgorithmOptimizer(Optimizer):
                                 o2[:] = spawn()
                                 del o2.fitness.values
 
-            if self.g == 0:
-                off_ids = np.random.choice(len(offspring), size=n_bobs, replace=False)
-                for i in range(n_bobs):
-                    # off_i = int(offsp_ids[i])
-                    off_i = int(off_ids[i])
-                    bob_i = int(bob_ids[i])
-                    logger.info("Inserting BoB {} to population".format(i+1))
-                    offspring[off_i][:] = bob_inds[bob_i]
-                    del offspring[off_i].fitness.values
+            off_ids = np.random.choice(len(offspring), size=n_bobs, replace=False)
+            for i in range(n_bobs):
+                # off_i = int(offsp_ids[i])
+                off_i = int(off_ids[i])
+                bob_i = int(bob_ids[i])
+                logger.info("Inserting BoB {} to population".format(i+1))
+                offspring[off_i][:] = bob_inds[bob_i]
+                del offspring[off_i].fitness.values
 
             # The population is entirely replaced by the offspring
             self.pop[:] = offspring
@@ -284,12 +324,20 @@ class GeneticAlgorithmOptimizer(Optimizer):
             self.eval_pop[:] = [list_to_dict(ind, self.optimizee_individual_dict_spec)
                              for ind in self.eval_pop_inds]
 
+            # print("self.g = {}".format(self.g))
+            # print("len(self.eval_pop_inds) = {}".format(len(self.eval_pop_inds)))
+            # print("len(self.eval_pop) = {}".format(len(self.eval_pop)))
+
             self.g += 1  # Update generation counter
             if len(self.eval_pop) == 0 and self.g < (NGEN - 1):
                 raise Exception("No more mutants to evaluate where generated. "
                                 "Increasing population size may help.")
 
             self._expand_trajectory(traj)
+
+            # print("self.g = {}".format(self.g))
+            # print("len(self.eval_pop_inds) = {}".format(len(self.eval_pop_inds)))
+            # print("len(self.eval_pop) = {}".format(len(self.eval_pop)))
 
     def end(self, traj):
         """
