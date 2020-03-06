@@ -38,29 +38,31 @@ def spiking_per_class(indices, spikes, start_t, end_t, dt):
 
 def overlap_score(apc, n_output):
     classes = sorted(apc.keys())
-    uniques = set()
-    for cls in classes:
-        uniques |= set(apc[cls].keys())
-    # print(sorted(uniques))
-
-    neuron_overlaps = np.zeros(n_output)
-    class_overlaps = np.zeros(len(classes))
+    class_overlaps_sets = [set() for _ in classes]
+    zero_counts = np.array(
+        [1 if len(apc[cls0].keys()) == 0 else 0 for cls0 in apc]
+    )
     for cls0_id, cls0 in enumerate(classes[:-1]):
-        for nid in np.unique(list(apc[cls0].keys())):
-            for cls1 in classes[cls0_id + 1:]:
+        for cls1 in classes[cls0_id + 1:]:
+            for nid in np.unique(list(apc[cls0].keys())):
                 nids1 = list(apc[cls1].keys())
                 if nid in nids1:
-                    # print(nid, nids1, cls0, cls1)
-                    class_overlaps[cls0] += 1
-                    class_overlaps[cls1] += 1
-                    neuron_overlaps[nid] += 1
+                    class_overlaps_sets[cls0] |= set([cls1])
+                    class_overlaps_sets[cls1] |= set([cls0])
 
-    # print(neuron_overlaps)
-    # print(class_overlaps)
-    # print("{} / {} = {}".format(np.sum(neuron_overlaps), len(uniques), np.sum(neuron_overlaps) / len(uniques)))
-    # print(1.0 - np.mean(class_overlaps))
-    # return 1.0 - (np.sum(neuron_overlaps) / len(uniques))
-    return 1.0 - np.mean(class_overlaps)
+    co = np.asarray( [float(len(s)) for s in class_overlaps_sets] )
+    # print(zero_counts)
+    coco = co / (len(classes) - 1)
+    coco[zero_counts != 0] = 1
+    # print(coco)
+    # print(class_overlaps_sets)
+    # print(co)
+    # print( co / (len(classes) - 1) )
+    # print( 1.0 - co / (len(classes) - 1) )
+    # print( 1.0 - coco )
+    # print(np.min( 1.0 - co / (len(classes) - 1) ))
+
+    return np.min( 1.0 - coco)
 
 def individual_score(ipc, n_tests, n_classes):
     events = np.zeros(n_classes)
@@ -111,7 +113,7 @@ def diff_class_dists(diff_class_vectors):
 
 def any_all_zero(apc, ipc):
     any_zero = False
-    all_zero = False
+    all_zero = True
     for cls in sorted(ipc.keys()):
         for idx in sorted(ipc[cls].keys()):
             if len(ipc[cls][idx]) == 0:
@@ -122,8 +124,9 @@ def any_all_zero(apc, ipc):
 
     for c in apc:
         nids = list(apc[c].keys())
-        if len(nids) == 0:
-            all_zero = True
+        if len(nids) != 0:
+            all_zero = False
+            break
 
     return any_zero, all_zero
 

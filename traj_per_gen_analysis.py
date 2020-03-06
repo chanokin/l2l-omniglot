@@ -13,7 +13,7 @@ import sys
 from datetime import datetime
 import time
 from scipy.special import comb
-
+from omnigloter import traj_utils as tutils
 
 
 # PREFIX = 'GA'
@@ -23,30 +23,9 @@ PREFIX = 'GD'
 TIME_SUFFIX = datetime.now().strftime("%d-%m-%Y-%H-%M")
 print("generating plot on {}".format(TIME_SUFFIX))
 
-def plot_input_spikes(in_spikes, start_t, total_t, dt=1.0, img_shape=(28, 28), in_divs=(5, 3)):
-    for lyr in sorted(in_spikes.keys()):
-        s1 = in_spikes[lyr]
-        w, h = img_shape if lyr < 2 else ((img_shape[0] // in_divs[0]) + 1, (img_shape[1] // in_divs[1]) + 1)
-        num_images = int(np.ceil(total_t / float(dt)))
-        imgs = [np.zeros((h, w)) for _ in range(num_images)]
-        for idx, times in enumerate(s1):
-            for t in sorted(times):
-                r, c = int(idx // w), int(idx % w)
-                if t < start_t or t >= start_t + total_t:
-                    continue
-                img_idx = int((t - start_t) // dt)
-                if img_idx > num_images:
-                    continue
-                imgs[img_idx][r, c] += 1.0
-        fw = 2
-        plt.figure(figsize=(total_t * fw, fw))
-        for idx, img in enumerate(imgs):
-            ax = plt.subplot(1, total_t, idx + 1)
-            plt.imshow(img)
-        plt.show()
 
 if len(sys.argv) == 1:
-    input_path = os.path.abspath('./L2L-OMNIGLOT/run_results')
+    input_path = os.path.abspath('./L2L-OMNIGLOT/run-num-test/per_gen_trajectories')
 
 else:
     input_path = os.path.abspath(sys.argv[1])
@@ -54,110 +33,52 @@ else:
 
 base_dir = input_path
 
-result_files = sorted(glob(os.path.join(input_path, 'data_*.npz')))
+result_files = sorted(glob(os.path.join(input_path, 'Trajectory_*.bin')))
 
-#total_different = 1.0 #comb(14, 2)
-#total_same = 0.1 # 4 * 14 * 0.1
-#total = total_different + total_same
-
-data = {}
-with np.load(result_files[0], allow_pickle=True) as tmp:
-    for k in tmp:
-        try:
-            data[k] = tmp[k].item()
-        except:
-            data[k] = tmp[k]
+total_different = 1.0 #comb(14, 2)
+total_same = 0.1 # 4 * 14 * 0.1
+total = total_different + total_same
 
 
-# print(data.keys())
-pkeys = [k for k in sorted(data['params']['ind'].keys()) \
+traj = tutils.open_traj(result_files[-1])
+params = tutils.get_params(traj)
+d_fitnesses = tutils.get_fitnesses(traj)
+gkeys = sorted( list(d_fitnesses.keys()) )
+pkeys = [k for k in sorted(params[gkeys[0]][0].keys()) \
                             if not (k == 'w_max_mult')]
 
 
-fit_fname_pat = "*_fitness_and_params_data_per_generation_*.npz"
-fit_fnames = sorted(glob(os.path.join(base_dir, fit_fname_pat)))
-last_fit_fname = fit_fnames[-1] if len(fit_fnames) else None
-pre_comp = {}
-last_gen = -1
-try:
-    with np.load(last_fit_fname, allow_pickle=True) as tmp:
-        for k in tmp:
-            try:
-                pre_comp[k] = tmp[k].item()
-            except:
-                pre_comp[k] = tmp[k]
-
-    last_gen = sorted(pre_comp['fitnesses'].keys())[-1]
-    all_params = {k: pre_comp['params'][k]
-                    for k in sorted(pre_comp['params'].keys())[:-1]}
-    fitnesses = {k: pre_comp['fitnesses'][k]
-                    for k in sorted(pre_comp['fitnesses'].keys())[:-1]}
-    all_scores = []
-    for k in sorted(pre_comp['fitnesses'].keys())[:-1]:
-        all_scores += pre_comp['fitnesses'][k]
-
-except:
-    all_params = {}
-    fitnesses = {}
-    all_scores = []
-
-data = {}
-for rf in result_files[:]:
-    sys.stdout.write("\r{}".format(rf))
+all_params = {}
+all_scores = []
+fitnesses = {}
+for g in gkeys:
+    sys.stdout.write("\rGeneration {}".format(g))
     sys.stdout.flush()
-    fn = os.path.basename(rf)
-    fns = (fn.split('.')[0]).split('_')
-    gen = int(fns[1].split('gen')[-1])
 
-    if gen < last_gen:
-        time.sleep(0.001)
-        continue
+    lfit = []    
+    apl = all_params.get(g, [])
+    for ind_idx in sorted(params[g]):
+        ap = {k: params[g][ind_idx][k] for k in pkeys}
 
-    ind = int(fns[2].split('ind')[-1])
+        score = np.sum(d_fitnesses[g][ind_idx])
+        lfit.append(score)
+    
+        all_scores.append(score)
+        apl.append(ap)
 
-    data.clear()
-    try:
-        with np.load(rf, allow_pickle=True) as tmp:
-            for k in tmp:
-                try:
-                    data[k] = tmp[k].item()
-                except:
-                    data[k] = tmp[k]
-    except:
-        continue
-    ag = data['analysis']['aggregate_per_class']['fitness']
-    ig = data['analysis']['individual_per_class']['fitness']
-    # fit0 = 0.3 * data['analysis']['aggregate_per_class']['overlap_dist'] + \
-    #        0.3 * data['analysis']['aggregate_per_class']['euc_dist'] + \
-    #        0.3 * data['analysis']['aggregate_per_class']['class_dist']
-    # fit1 = data['analysis']['individual_per_class']['cos_dist']
-    # _fit = (fit0 + 0.1*fit1)#/2.0
-    _fit = data['fitness']
-    # _fit = ag + ig
-    all_scores.append(_fit)
-    l = fitnesses.get(gen, [])
-    l.append(_fit)
-
-    fitnesses[gen] = l
-
-    ap = {k: data['params']['ind'][k] for k in pkeys}
-    apl = all_params.get(gen, [])
-    apl.append(ap)
-    all_params[gen] = apl
+    fitnesses[g] = lfit
 
 
+    all_params[g] = apl
 
 
-fit_fname = "{}_fitness_and_params_data_per_generation_{}.npz".format(PREFIX, TIME_SUFFIX)
-np.savez_compressed(os.path.join(base_dir, fit_fname),
-                    fitnesses=fitnesses, params=all_params)
 
 print()
 n_bins = int(np.ceil(total / 5.0) + 1)
 minimum = []
 maximum = []
 average = []
-gkeys = sorted( list(fitnesses.keys()) )
+
 for g in gkeys:
     minimum.append(np.min(np.clip(fitnesses[g], 0, np.inf)))
     maximum.append(np.max(np.clip(fitnesses[g], 0, np.inf)))
@@ -239,6 +160,7 @@ plt.savefig(os.path.join(base_dir, fname))
 #####################################################################
 #####################################################################
 
+print("len(all_scores) = {}".format(len(all_scores)))
 scores = np.asarray(all_scores)
 argsort = np.argsort(scores)
 
@@ -252,7 +174,7 @@ plt_idx = 1
 accum_params = {k: [] for k in pkeys}
 for g in gkeys:
     for ind in all_params[g]:
-        for k in ind:
+        for k in pkeys:
             accum_params[k].append(ind[k])
 alpha = np.clip(scores, 0, np.inf)
 alpha = alpha / (1.0 + alpha)
@@ -260,6 +182,9 @@ for i in range(n_params):
     for j in range(i + 1, n_params):
         i_params = np.asarray(accum_params[pkeys[i]])
         j_params = np.asarray(accum_params[pkeys[j]])
+        print("len({}_params) = {}".format(i, len(i_params)))
+        print("len({}_params) = {}".format(j, len(j_params)))
+        
         ax = plt.subplot(n_rows, n_cols, plt_idx)
         im = plt.scatter(i_params[argsort], j_params[argsort],
                 c=scores[argsort],

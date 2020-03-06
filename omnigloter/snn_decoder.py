@@ -161,7 +161,7 @@ class Decoder(object):
         fname = "input_spikes_%s__width_%s_div_%s__nclass_%02d__nepoch_%04d__totalsamples_%010d.npz"%\
                 (db, in_shape[0], in_divs[0], nclass, nepochs, total_fs)
         fname = os.path.join(in_path, fname)
-        print(fname)
+#        print(fname)
         duration = params['sim']['duration']
         steps = params['sim']['steps']
         if os.path.isfile(fname):
@@ -179,8 +179,8 @@ class Decoder(object):
                 seconds = total_t_creation - hours * 3600 - minutes * 60
                 print("\tIt took %d:%d:%05.2f" % (hours, minutes, seconds))
                 print(shapes)
-                print(labels)
-                print(len(spikes))
+#                 print(labels)
+#                 print(len(spikes))
                 return labels, shapes, spikes
 
         else:
@@ -672,12 +672,12 @@ class Decoder(object):
         max_w = ind_par['out_weight'] / exp_size
 
         conn_list = utils.output_connection_list(pre.size, post.size, prob,
-                                                 max_w, 0.1,max_pre=1000# , seed=123
+                                                 max_w, 0.1, max_pre=1000# , seed=123
                                                 )
 
         tdeps = {k: ind_par[k] if k in ind_par else config.TIME_DEP_VARS[k] \
                                                 for k in config.TIME_DEP_VARS}
-        print("time deps ", tdeps)
+#         print("time deps ", tdeps)
         tdep = getattr(__stdp__, config.TIME_DEP)(**tdeps)
         wdep = getattr(__stdp__, config.WEIGHT_DEP)(ind_par['w_min_mult']*max_w, ind_par['w_max_mult']*max_w)
         stdp = getattr(__stdp__, config.STDP_MECH)(timing_dependence=tdep, weight_dependence=wdep)
