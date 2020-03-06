@@ -236,7 +236,7 @@ def main():
         num_generations = 1000
         population_size = 5
         # population_size = 5
-        p_hof = 0.2 if population_size < 100 else 0.1
+        p_hof = 0.5 if population_size < 100 else 0.1
         p_bob = 0.5
         # last_trajs = load_last_trajs(os.path.join(paths.output_dir_path, 'per_gen_trajectories'))
         # last_trajs = load_last_trajs(os.path.join(paths.root_dir_path, 'trajectories'))
