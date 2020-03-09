@@ -2,8 +2,8 @@
 
 #SBATCH --account=hhd34
 #SBATCH --partition=gpus
-#SBATCH --nodes=25
-#SBATCH --ntasks=100
+#SBATCH --nodes=2
+#SBATCH --ntasks=8
 ### #SBATCH --ntasks-per-node=4
 #SBATCH --ntasks-per-core=1
 #SBATCH --cpus-per-task=1
@@ -11,7 +11,7 @@
 #SBATCH --threads-per-core=1
 
 #SBATCH --gres=gpu:4
-#SBATCH --time=24:00:00
+#SBATCH --time=1:00:00
 #SBATCH --mail-user=g.pineda-garcia@sussex.ac.uk
 #SBATCH --mail-type=ALL
 

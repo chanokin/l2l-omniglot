@@ -124,7 +124,7 @@ def main():
         # -N num nodes
         # -t exec time (mins)
         # -n num sub-procs
-        command = "srun -N 1 -n 1 -c 1 --gres=gpu:1 {}".format(command)
+        command = "srun -n 1 -c 1 --gres=gpu:1 {}".format(command)
     elif USE_MPI:
         # -timeout <seconds>
         # command = "MPIEXEC_TIMEOUT={} "
@@ -275,7 +275,9 @@ def main():
             optimizee_bounding_func=optimizee.bounding_func)
     else:
         num_generations = 1000
-        population_size = 4 * 10
+        nodes = 2
+        gpus_per_node = 4
+        population_size = gpus_per_node * nodes
         # population_size = 5
         p_hof = 0.25 if population_size < 100 else 0.1
         p_bob = 0.5

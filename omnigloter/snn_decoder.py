@@ -57,6 +57,8 @@ class Decoder(object):
             print("\n\n\nCUDA_VISIBLE_DEVICES = {}\n\n".format(os.environ["CUDA_VISIBLE_DEVICES"]))
         else:
             print("\n\n\nCUDA_VISIBLE_DEVICES NOT FOUND!!!\n\n")
+
+        print("\n\n\n{}\n\n\n".format(os.environ))
         # pprint(params)
 
     def decode(self, params):
@@ -77,8 +79,11 @@ class Decoder(object):
         if config.SIM_NAME == config.GENN:
             setup_args['model_name'] = self.name
             setup_args['backend'] = config.BACKEND
+
             if params['sim']['on_juwels']:
-                setup_args['selected_gpu_id'] = None
+                ind_idx = self.params['gen']['ind']
+                GPU_ID = os.environ["CUDA_VISIBLE_DEVICES"]
+                setup_args['selected_gpu_id'] = ind_idx % 4
             else:
                 setup_args['selected_gpu_id'] = config.GPU_ID
 
