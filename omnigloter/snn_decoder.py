@@ -67,7 +67,7 @@ class Decoder(object):
         if config.SIM_NAME == config.GENN:
             setup_args['model_name'] = self.name
             setup_args['backend'] = config.BACKEND
-            setup_args['selected_gpu_id'] = 0
+            setup_args['selected_gpu_id'] = config.GPU_ID
 
         sim.setup(**setup_args)
 
@@ -148,14 +148,13 @@ class Decoder(object):
         fname = "input_spikes_%s__width_%s_div_%s__nclass_%02d__nepoch_%04d__totalsamples_%010d.npz"%\
                 (db, in_shape[0], in_divs[0], nclass, nepochs, total_fs)
         fname = os.path.join(in_path, fname)
-        print(fname)
+#        print(fname)
         duration = params['sim']['duration']
         steps = params['sim']['steps']
         if os.path.isfile(fname):
-            # try:
-                t_creation_start = time.time()
+            t_creation_start = time.time()
 
-                data = np.load(fname, allow_pickle=True)
+            with np.load(fname, allow_pickle=True) as data:
                 labels=data['labels']
                 shapes=data['shapes'].item()
                 spikes = utils.split_ssa(
@@ -167,57 +166,31 @@ class Decoder(object):
                 seconds = total_t_creation - hours * 3600 - minutes * 60
                 print("\tIt took %d:%d:%05.2f" % (hours, minutes, seconds))
                 print(shapes)
-                print(labels)
-                print(len(spikes))
+#                 print(labels)
+#                 print(len(spikes))
                 return labels, shapes, spikes
-            # except:
-            #     pass
+
         else:
             print("FILE NOT FOUND!!!!!!")
 
         fnames = []
         class_dirs = sorted(os.listdir(path))[:nclass]
-        # print(class_dirs)
+
         from random import shuffle
-        # fnames = train_fnames * nepochs
-        # shuffle(fnames)
-        # shuffle(fnames)
-        # shuffle(fnames)
+
         e_fnames = []
         for e in range(nepochs):
             e_fnames[:] = []
-            lbls = []
             for cidx in class_dirs:
                 cpath = os.path.join(path, cidx)
                 files = sorted(glob(os.path.join(cpath, '*.npz')))
                 for f in files[:nsamp]:
                     e_fnames.append(f)
-                    # print(f)
-                    # x = f.find('character') + len('character')
-                    # label = int(f[x:x + 2])
-                    # lbls.append(label)
-
-            # plt.close('all')
-            # plt.figure(figsize=(50, 5))
-            # ax = plt.subplot(1, 3, 1)
-            # plt.suptitle('epoch {}'.format(e))
-            #
-            # plt.hist([x[:-6] for x in e_fnames], bins=nclass)#, bins=np.arange(nclass))
-            # ax.set_xticklabels(np.arange(nclass))
 
             shuffle(e_fnames)
 
-            # ax = plt.subplot(1, 3, 2)
-            # plt.hist([x[:-6] for x in e_fnames], bins=nclass)
-            # ax.set_xticklabels(np.arange(nclass))
-
             fnames += e_fnames
 
-            # ax = plt.subplot(1, 3, 3)
-            # plt.hist([x[:-6] for x in fnames], bins=nclass)
-            # ax.set_xticklabels(np.arange(nclass))
-            # plt.show()
-            # print()
 
         test_fnames = []
         for cidx in class_dirs:
@@ -225,9 +198,6 @@ class Decoder(object):
             files = sorted(glob(os.path.join(cpath, '*.npz')))
             for f in files[nsamp:]:
                 test_fnames.append(f)
-
-
-
 
         t_creation_start = time.time()
         tmp = []
@@ -239,41 +209,23 @@ class Decoder(object):
         dt_idx = 0
         total_fs = float(len(fnames) + len(test_fnames))
         for i, f in enumerate(fnames):
-            # if (i % (nclass * nsamp)) == 0 :
-            #     plt.close('all')
-            #     plt.figure()
-            #     plt.hist(labels, bins=nclass)
-            #     plt.savefig("label_histogram_{:09d}.pdf".format(i))
-            #     plt.show()
 
-            spk = np.load(f, allow_pickle=True)
-            # try:
-            #     labels.append(spk['label'].item())
-            # except:
-            #     x = f.find('character') + len('character')
-            #     labels.append(int(f[x:x+2]))
-            x = f.find('character') + len('character')
-            label = int(f[x:x+2])
-            labels.append(label)
-
-            try:
-                tmp[:] = utils.split_spikes(spk['spikes'], nlayers)
-            except:
+            with np.load(f, allow_pickle=True) as spk:
+                labels.append(spk['label'].item())
                 tmp[:] = utils.split_spikes(spk['spike_source_array'], nlayers)
-            # img = spk['image']
 
-            for tidx in range(nlayers):
-                divs = (1, 1) if tidx < 2 else params['sim']['input_divs']
-                shape, tmp[tidx][:] = utils.reduce_spike_place(tmp[tidx], in_shape, divs)
-                if shapes[tidx] is None:
-                    shapes[tidx] = shape
+                for tidx in range(nlayers):
+                    divs = (1, 1) if tidx < 2 else params['sim']['input_divs']
+                    shape, tmp[tidx][:] = utils.reduce_spike_place(tmp[tidx], in_shape, divs)
+                    if shapes[tidx] is None:
+                        shapes[tidx] = shape
 
 
-                tmp[tidx][:] = utils.add_noise(prob_noise, tmp[tidx], dt_idx*dt, dt_idx*dt + dt*0.5)
-                if spikes[tidx] is None:
-                    spikes[tidx] = tmp[tidx]
-                else:
-                    spikes[tidx][:] = utils.append_spikes(spikes[tidx], tmp[tidx], dt_idx*dt)
+                    tmp[tidx][:] = utils.add_noise(prob_noise, tmp[tidx], dt_idx*dt, dt_idx*dt + dt*0.5)
+                    if spikes[tidx] is None:
+                        spikes[tidx] = tmp[tidx]
+                    else:
+                        spikes[tidx][:] = utils.append_spikes(spikes[tidx], tmp[tidx], dt_idx*dt)
 
             dt_idx += 1
             sys.stdout.write("\r\t\tTrain %06.2f%%"%(100.0 * dt_idx / total_fs))
@@ -290,28 +242,20 @@ class Decoder(object):
         shuffle(test_fnames)
         shuffle(test_fnames)
         for f in test_fnames:
-            spk = np.load(f, allow_pickle=True)
-            try:
+            with np.load(f, allow_pickle=True) as spk:
                 labels.append(spk['label'].item())
-            except:
-                x = f.find('character') + len('character')
-                labels.append(int(f[x:x+2]))
-
-            try:
-                tmp[:] = utils.split_spikes(spk['spikes'], nlayers)
-            except:
                 tmp[:] = utils.split_spikes(spk['spike_source_array'], nlayers)
 
-            for tidx in range(nlayers):
-                divs = (1, 1) if tidx < 2 else params['sim']['input_divs']
-                shape, tmp[tidx][:] = utils.reduce_spike_place(tmp[tidx], in_shape, divs)
-                if shapes[tidx] is None:
-                    shapes[tidx] = shape
+                for tidx in range(nlayers):
+                    divs = (1, 1) if tidx < 2 else params['sim']['input_divs']
+                    shape, tmp[tidx][:] = utils.reduce_spike_place(tmp[tidx], in_shape, divs)
+                    if shapes[tidx] is None:
+                        shapes[tidx] = shape
 
-                if spikes[tidx] is None:
-                    spikes[tidx] = tmp[tidx]
-                else:
-                    spikes[tidx][:] = utils.append_spikes(spikes[tidx], tmp[tidx], dt_idx*dt)
+                    if spikes[tidx] is None:
+                        spikes[tidx] = tmp[tidx]
+                    else:
+                        spikes[tidx][:] = utils.append_spikes(spikes[tidx], tmp[tidx], dt_idx*dt)
 
             dt_idx += 1
             sys.stdout.write("\r\t\tTest %06.2f%%"%(100.0 * dt_idx / total_fs))
@@ -345,8 +289,10 @@ class Decoder(object):
             p = sim.Population(s, sim.SpikeSourceArray,
                                {'spike_times': self.inputs[0][i]},
                                label='input layer %s'%i)
+
             if 'input' in config.RECORD_SPIKES:
                 p.record('spikes')
+
             ins[i] = p
         return ins
 
@@ -713,12 +659,12 @@ class Decoder(object):
         max_w = ind_par['out_weight'] / exp_size
 
         conn_list = utils.output_connection_list(pre.size, post.size, prob,
-                                                 max_w, 0.01,max_pre=100# , seed=123
+                                                 max_w, 0.1, max_pre=1000# , seed=123
                                                 )
 
         tdeps = {k: ind_par[k] if k in ind_par else config.TIME_DEP_VARS[k] \
                                                 for k in config.TIME_DEP_VARS}
-        print("time deps ", tdeps)
+#         print("time deps ", tdeps)
         tdep = getattr(__stdp__, config.TIME_DEP)(**tdeps)
         wdep = getattr(__stdp__, config.WEIGHT_DEP)(ind_par['w_min_mult']*max_w, ind_par['w_max_mult']*max_w)
         stdp = getattr(__stdp__, config.STDP_MECH)(timing_dependence=tdep, weight_dependence=wdep)
@@ -821,11 +767,16 @@ class Decoder(object):
                 break
 
 
-        if not __died__:
-            for pop in net['populations']:
-                if pop in config.RECORD_SPIKES:
+        for pop in net['populations']:
+            if pop in config.RECORD_SPIKES:
+                try:
                     records[pop] = self._get_recorded(pop)
+                except:
+                    sys.stdout.write("\n\n\n\tUnable to get spikes from {}\n\n".format(pop))
+                    sys.stdout.flush()
 
+                
+        if not __died__:
             for proj in net['projections']:
                 if proj in config.RECORD_WEIGHTS:
                     if proj == 'input to mushroom':

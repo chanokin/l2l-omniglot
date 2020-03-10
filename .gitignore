@@ -15,6 +15,7 @@ L2L-OMNIGLOT/run_files/
 L2L-OMNIGLOT/trajectories/
 L2L-OMNIGLOT/work/
 L2L-OMNIGLOT/optimizee.bin
+
 **/__pycache__/
 **/*_CODE/
 .ipynb_checkpoints/
@@ -23,3 +24,8 @@ histogram_per_gen.pdf
 learning_rule_full.svg
 learning_rule_zoom.svg
 slurm*.out
+FIT-TEMPS/
+temp_figs/
+temp_fit/
+run_0/
+my_jube/

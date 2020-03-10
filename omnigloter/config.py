@@ -7,12 +7,13 @@ DEBUG = bool(0)
 ONE_TO_ONE_EXCEPTION = bool(0)
 BACKEND = 'SingleThreadedCPU' if bool(0) else 'CUDA'
 
-INF = float(10e10)
+INF = float(1e12)
 
 USE_GABOR_LAYER = bool(0)
 
 SIM_NAME = SPINNAKER
 
+GPU_ID = 0
 
 TIMESTEP = 1.0 #ms
 SAMPLE_DT = 50.0 #ms
@@ -30,7 +31,7 @@ INPUT_DIVS = (3, 5)
 # INPUT_DIVS = (2, 3)
 N_CLASSES = 14 if DEBUG else 14
 N_SAMPLES = 16 if DEBUG else 16
-N_EPOCHS = 10 if DEBUG else 100
+N_EPOCHS = 10 if DEBUG else 50
 N_TEST = 4 if DEBUG else 4
 TOTAL_SAMPLES = N_SAMPLES * N_EPOCHS + N_TEST
 DURATION = N_CLASSES * TOTAL_SAMPLES * SAMPLE_DT
@@ -68,13 +69,13 @@ GABOR_WEIGHT_RANGE = (2.0, 5.000001) if DEBUG else (1.0, 5.0)
 if ONE_TO_ONE_EXCEPTION:
     OUT_WEIGHT_RANGE = (0.1, 0.1000000001)
 else:
-    OUT_WEIGHT_RANGE = (2.0, 5.000000001) if DEBUG else (0.1, 10.0)
+    OUT_WEIGHT_RANGE = (2.0, 5.000000001) if DEBUG else (0.01, 5.0)
 # OUT_WEIGHT_RANGE = (1.5, 1.500001) if DEBUG else (0.01, 0.5) ### 64x64
 
 if ONE_TO_ONE_EXCEPTION:
     MUSHROOM_WEIGHT_RANGE = (5.0, 5.0000000001)
 else:
-    MUSHROOM_WEIGHT_RANGE = (1.0, 5.0000001) if DEBUG else (1.0, 5.0)
+    MUSHROOM_WEIGHT_RANGE = (1.0, 5.0000001) if DEBUG else (0.01, 5.0)
 # MUSHROOM_WEIGHT_RANGE = (0.50, 0.500000001) if DEBUG else (0.05, 1.0)
 # MUSHROOM_WEIGHT_RANGE = (0.025, 0.02500001) if DEBUG else (0.05, 1.0) ### for (64,64)
 
@@ -265,7 +266,7 @@ OUTPUT_PARAMS['tau_syn_I'] = 5.
 
 
 RECORD_SPIKES = [
-    'input',
+    # 'input',
     # 'gabor',
     # 'mushroom',
     # 'inh_mushroom',
