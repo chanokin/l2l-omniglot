@@ -118,7 +118,7 @@ def main():
             # -n num sub-procs
             command = "srun -t 15 -N 1 -n 4 -c 1 --gres=gpu:1 {}".format(command)
         elif USE_MPI:
-            command = "MPIEXEC_TIMEOUT={} mpiexec -bind-to core -np 1 {}".format(60, command)
+            command = "MPIEXEC_TIMEOUT={} mpiexec -bind-to socket -np 1 {}".format(60, command)
 
         traj.f_add_parameter_to_group("JUBE_params", "exec", command)
 
@@ -183,7 +183,7 @@ def main():
                   optimizee_fitness_weights=fit_weights,
                   parameters=parameters,
                   optimizee_bounding_func=optimizee.bounding_func,
-                  percent_hall_of_fame=0.3,
+                  percent_hall_of_fame=0.05,
                   percent_elite=0.5,
                   )
 
