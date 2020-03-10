@@ -103,7 +103,11 @@ def main():
         command = "srun -t 15 -N 1 -n 4 -c 1 --gres=gpu:1 {}".format(command)
     elif USE_MPI:
         # -timeout <seconds>
-        command = "MPIEXEC_TIMEOUT={} mpiexec -bind-to none -np 1 {}".format(60*120, command)
+        hours = 3
+        minutes = 0
+        seconds = 0
+        timeout = hours * 60 * 60 + minutes * 60 + seconds 
+        command = "MPIEXEC_TIMEOUT={} mpiexec -bind-to none -np 1 {}".format(timeout, command)
 
     traj.f_add_parameter_to_group("JUBE_params", "exec", command)
 
