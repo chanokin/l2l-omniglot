@@ -36,7 +36,7 @@ NUM_SIMS = 1
 if config.DEBUG:
     NUM_SIMS = 1
 elif ON_JEWELS:
-    NUM_SIMS = 10
+    NUM_SIMS = 5
 elif ON_TITAN:
     NUM_SIMS = 15
 
@@ -124,7 +124,7 @@ def main():
         # -N num nodes
         # -t exec time (mins)
         # -n num sub-procs
-        command = "srun -n 1 -c 1 --gres=gpu:1 {}".format(command)
+        command = "srun -n 1 -c {} --gres=gpu:1 {}".format(NUM_SIMS, command)
     elif USE_MPI:
         # -timeout <seconds>
         # command = "MPIEXEC_TIMEOUT={} "
@@ -275,7 +275,7 @@ def main():
             optimizee_bounding_func=optimizee.bounding_func)
     else:
         num_generations = 1000
-        nodes = 2
+        nodes = 12
         gpus_per_node = 4
         population_size = gpus_per_node * nodes
         # population_size = 5
@@ -293,7 +293,7 @@ def main():
             seed=None,
             popsize=population_size,
             CXPB=0.5,  # probability of mating 2 individuals
-            MUTPB=0.8,  # probability of individual to mutate
+            MUTPB=0.5,  # probability of individual to mutate
             NGEN=num_generations,
             indpb=0.1,  # probability of "gene" to mutate
             # number of best individuals to mate

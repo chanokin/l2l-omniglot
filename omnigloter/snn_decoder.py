@@ -47,6 +47,16 @@ class Decoder(object):
         self.params = params
         self.decode(params)
         logging.info("In Decoder init, %s"%name)
+
+        print('\n\n')
+        env = os.environ
+        for k in env:
+            klow = k.lower()
+            if 'gpu' in klow or 'cuda' in klow or 'cpu' in klow or \
+               'proc' in klow or 'nodelist' in klow:
+                print( '{} = {}'.format(k, env[k]) )
+
+	
         if "GPU_DEVICE_ORDINAL" in os.environ:
             print("\n\n\nGPU_DEVICE_ORDINAL = {}\n\n".format(os.environ["GPU_DEVICE_ORDINAL"]))
         else:
@@ -58,7 +68,7 @@ class Decoder(object):
         else:
             print("\n\n\nCUDA_VISIBLE_DEVICES NOT FOUND!!!\n\n")
 
-        print("\n\n\n{}\n\n\n".format(os.environ))
+#        print("\n\n\n{}\n\n\n".format(os.environ))
         # pprint(params)
 
     def decode(self, params):
@@ -83,7 +93,16 @@ class Decoder(object):
             if params['sim']['on_juwels']:
                 ind_idx = self.params['gen']['ind']
                 GPU_ID = os.environ["CUDA_VISIBLE_DEVICES"]
-                setup_args['selected_gpu_id'] = ind_idx % 4
+                try:
+                    GPU_ID = int(GPU_ID)
+                except:
+                    np.random.seed(None)
+                    GPU_ID = np.random.randint(0, 4)
+                
+                print("\n{}\n\nchosen gpu id = {}\n".format(
+                    os.environ["CUDA_VISIBLE_DEVICES"], GPU_ID))
+		 
+                setup_args['selected_gpu_id'] = GPU_ID
             else:
                 setup_args['selected_gpu_id'] = config.GPU_ID
 
