@@ -30,7 +30,6 @@ def bound(val, num_range):
         v = num_range[0]
     else:
         v = np.clip(val, num_range[0], num_range[1])
-
     # print("BOUND: (%s, %s, %s) -> %s"%(num_range[0], num_range[1], val, v))
     if np.issubdtype(type(num_range[0]), np.integer):
         v = np.round(v)
@@ -205,7 +204,6 @@ def dist_conn_list(in_shapes, num_zones, out_size, radius, prob, weight, delay):
         max_pre = width * height
         # how many rows and columns resulted from dividing in_shape / (2 * radius)
         nrows, ncols = int(num_zones[pre_pop][0]), int(num_zones[pre_pop][1])
-
         # select minimum distance (adjust for different in_shapes)
         _radius = np.round( np.round(radius) if pre_pop < 2 else int(np.round(radius)//div) )
 

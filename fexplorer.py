@@ -26,8 +26,8 @@ GRADDESC, EVOSTRAT, GENALG = range(3)
 # OPTIMIZER = EVOSTRAT
 # OPTIMIZER = GRADDESC
 OPTIMIZER = GENALG
-ON_JEWELS = bool(0)
-ON_TITAN = bool(1)
+ON_JEWELS = bool(1)
+ON_TITAN = bool(0)
 USE_MPI = bool(0)
 MULTIPROCESSING = (ON_JEWELS or USE_MPI or bool(0)) and (
                   not config.DEBUG or not ON_TITAN)
@@ -36,7 +36,7 @@ NUM_SIMS = 1
 if config.DEBUG:
     NUM_SIMS = 1
 elif ON_JEWELS:
-    NUM_SIMS = 10
+    NUM_SIMS = 5
 elif ON_TITAN:
     NUM_SIMS = 15
 
@@ -124,7 +124,7 @@ def main():
         # -N num nodes
         # -t exec time (mins)
         # -n num sub-procs
-        command = "srun -N 1 -n 1 -c 1 --gres=gpu:1 {}".format(command)
+        command = "srun -n 1 -c {} --gres=gpu:1 {}".format(NUM_SIMS, command)
     elif USE_MPI:
         # -timeout <seconds>
         # command = "MPIEXEC_TIMEOUT={} "
@@ -148,6 +148,8 @@ def main():
     traj.f_add_parameter_group("simulation", "Contains JUBE parameters")
     traj.f_add_parameter_to_group("simulation",
                                   'num_sims', NUM_SIMS)  # ms
+    traj.f_add_parameter_to_group("simulation",
+                                  'on_juwels', ON_JEWELS)
     traj.f_add_parameter_to_group("simulation",
                                   'steps', config.STEPS)  # ms
     traj.f_add_parameter_to_group("simulation",
@@ -273,9 +275,11 @@ def main():
             optimizee_bounding_func=optimizee.bounding_func)
     else:
         num_generations = 1000
-        population_size = 5
+        nodes = 12
+        gpus_per_node = 4
+        population_size = gpus_per_node * nodes
         # population_size = 5
-        p_hof = 0.5 if population_size < 100 else 0.1
+        p_hof = 0.25 if population_size < 100 else 0.1
         p_bob = 0.5
         # last_trajs = load_last_trajs(os.path.join(
         #    paths.output_dir_path, 'per_gen_trajectories'))
@@ -289,7 +293,7 @@ def main():
             seed=None,
             popsize=population_size,
             CXPB=0.5,  # probability of mating 2 individuals
-            MUTPB=0.8,  # probability of individual to mutate
+            MUTPB=0.5,  # probability of individual to mutate
             NGEN=num_generations,
             indpb=0.1,  # probability of "gene" to mutate
             # number of best individuals to mate

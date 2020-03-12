@@ -7,7 +7,7 @@ DEBUG = bool(0)
 ONE_TO_ONE_EXCEPTION = bool(0)
 BACKEND = 'SingleThreadedCPU' if bool(0) else 'CUDA'
 
-INF = float(1e12)
+INF = float(10e10)
 
 USE_GABOR_LAYER = bool(0)
 

@@ -47,6 +47,28 @@ class Decoder(object):
         self.params = params
         self.decode(params)
         logging.info("In Decoder init, %s"%name)
+
+        print('\n\n')
+        env = os.environ
+        for k in env:
+            klow = k.lower()
+            if 'gpu' in klow or 'cuda' in klow or 'cpu' in klow or \
+               'proc' in klow or 'nodelist' in klow:
+                print( '{} = {}'.format(k, env[k]) )
+
+	
+        if "GPU_DEVICE_ORDINAL" in os.environ:
+            print("\n\n\nGPU_DEVICE_ORDINAL = {}\n\n".format(os.environ["GPU_DEVICE_ORDINAL"]))
+        else:
+            print("\n\n\nGPU_DEVICE_ORDINAL WAS NOT FOUND!\n\n")
+
+
+        if "CUDA_VISIBLE_DEVICES" in os.environ:
+            print("\n\n\nCUDA_VISIBLE_DEVICES = {}\n\n".format(os.environ["CUDA_VISIBLE_DEVICES"]))
+        else:
+            print("\n\n\nCUDA_VISIBLE_DEVICES NOT FOUND!!!\n\n")
+
+#        print("\n\n\n{}\n\n\n".format(os.environ))
         # pprint(params)
 
     def decode(self, params):
@@ -67,14 +89,31 @@ class Decoder(object):
         if config.SIM_NAME == config.GENN:
             setup_args['model_name'] = self.name
             setup_args['backend'] = config.BACKEND
-            setup_args['selected_gpu_id'] = config.GPU_ID
+
+            if params['sim']['on_juwels']:
+                ind_idx = self.params['gen']['ind']
+                GPU_ID = os.environ["CUDA_VISIBLE_DEVICES"]
+                try:
+                    GPU_ID = int(GPU_ID)
+                except:
+                    from omnigloter import cuda_utils
+#                    np.random.seed(None)
+#                    GPU_ID = np.random.randint(0, 4)
+                    GPU_ID = cuda_utils.pick_gpu_lowest_memory()
+                
+                print("\n{}\n\nchosen gpu id = {}\n".format(
+                    os.environ["CUDA_VISIBLE_DEVICES"], GPU_ID))
+		 
+                setup_args['selected_gpu_id'] = GPU_ID
+            else:
+                setup_args['selected_gpu_id'] = config.GPU_ID
 
         sim.setup(**setup_args)
 
         if config.SIM_NAME == config.SPINNAKER:
             sim.set_number_of_neurons_per_core(__neuron__.IF_curr_exp_i, 150)
             sim.set_number_of_neurons_per_core(sim.SpikeSourceArray, 150)
-        
+
         logging.info("\tGenerating spikes")
         self.in_labels, self.in_shapes, self.inputs = self.get_in_spikes(params)
 
@@ -738,7 +777,7 @@ class Decoder(object):
         # pprint(net)
 
         logging.info("\tRunning experiment for {} milliseconds".format(net['run_time']))
-        
+
         sys.stdout.write("\n\n\tRunning step {} out of {}\n\n".format(1, steps))
         sys.stdout.flush()
 

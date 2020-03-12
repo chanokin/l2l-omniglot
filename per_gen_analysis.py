@@ -56,9 +56,9 @@ base_dir = input_path
 
 result_files = sorted(glob(os.path.join(input_path, 'data_*.npz')))
 
-total_different = 1.0 #comb(14, 2)
-total_same = 0.1 # 4 * 14 * 0.1
-total = total_different + total_same
+#total_different = 1.0 #comb(14, 2)
+#total_same = 0.1 # 4 * 14 * 0.1
+#total = total_different + total_same
 
 data = {}
 with np.load(result_files[0], allow_pickle=True) as tmp:
