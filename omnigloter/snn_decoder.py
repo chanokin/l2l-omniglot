@@ -96,8 +96,10 @@ class Decoder(object):
                 try:
                     GPU_ID = int(GPU_ID)
                 except:
-                    np.random.seed(None)
-                    GPU_ID = np.random.randint(0, 4)
+                    from omnigloter import cuda_utils
+#                    np.random.seed(None)
+#                    GPU_ID = np.random.randint(0, 4)
+                    GPU_ID = cuda_utils.pick_gpu_lowest_memory()
                 
                 print("\n{}\n\nchosen gpu id = {}\n".format(
                     os.environ["CUDA_VISIBLE_DEVICES"], GPU_ID))
