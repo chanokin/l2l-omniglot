@@ -275,7 +275,7 @@ def main():
             optimizee_bounding_func=optimizee.bounding_func)
     else:
         num_generations = 1000
-        nodes = 12
+        nodes = 8
         gpus_per_node = 4
         population_size = gpus_per_node * nodes
         # population_size = 5
