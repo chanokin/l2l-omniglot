@@ -275,9 +275,12 @@ def main():
             optimizee_bounding_func=optimizee.bounding_func)
     else:
         num_generations = 1000
-        nodes = 12
-        gpus_per_node = 4
-        population_size = gpus_per_node * nodes
+        if ON_JEWELS:
+            nodes = 12
+            gpus_per_node = 4
+            population_size = gpus_per_node * nodes
+        else:
+            population_size = 20
         # population_size = 5
         p_hof = 0.25 if population_size < 100 else 0.1
         p_bob = 0.5
