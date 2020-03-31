@@ -208,6 +208,7 @@ class OmniglotOptimizee(Optimizee):
         print("any_zero, all_zero = {}, {}".format(any_zero, all_zero))
         if not all_zero:
             diff_class_distances = analysis.diff_class_dists(diff_class_vectors)
+            diff_class_distances[:] = np.clip(diff_class_distances, 0., 200.0)/200.0
             diff_class_overlap = analysis.overlap_score(apc, n_out)
             diff_class_repr = analysis.individual_score(ipc, n_test, n_class)
 
@@ -217,7 +218,8 @@ class OmniglotOptimizee(Optimizee):
                         analysis.same_class_distances(same_class_vectors)
 
             # invert (1 - x) so that 0 == bad and 1 == good
-            diff_class_fitness = 1.0 - np.mean(diff_class_distances)
+            # diff_class_fitness = 1.0 - np.mean(diff_class_distances)
+            diff_class_fitness = np.mean(diff_class_distances)
 
             same_fitnesses = np.asarray([ np.mean(same_class_distances[c])
                                     for c in sorted(same_class_distances.keys()) ])
@@ -240,11 +242,11 @@ class OmniglotOptimizee(Optimizee):
                 'class_dist': diff_class_repr,
                 'weights': {
                     #overlapping activity is present
-                    'overlap_dist': 0.4,
+                    'overlap_dist': 0.15,
                     #how many classes are represented
                     'class_dist': 0.3,
                     # different class distance
-                    'fitness': 0.2,
+                    'fitness': 0.5,
                 },
             },
             'individual_per_class': {
@@ -254,7 +256,7 @@ class OmniglotOptimizee(Optimizee):
                 'fitness': same_class_fitness,
                 'weights': {
                     # same class distance
-                    'fitness': 0.1,
+                    'fitness': 0.0,
                 },
             },
 

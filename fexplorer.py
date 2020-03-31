@@ -26,7 +26,7 @@ OPTIMIZER = GENALG
 ON_JEWELS = bool(0)
 ON_TITAN = bool(1)
 USE_MPI = bool(0)
-MULTIPROCESSING = (ON_JEWELS or USE_MPI or bool(0)) and (not config.DEBUG or not ON_TITAN)
+MULTIPROCESSING = (ON_JEWELS or USE_MPI or bool(0)) and (not config.DEBUG)
 NUM_SIMS = 1
 
 if config.DEBUG:
@@ -34,7 +34,7 @@ if config.DEBUG:
 elif ON_JEWELS:
     NUM_SIMS = 10
 elif ON_TITAN:
-    NUM_SIMS = 15
+    NUM_SIMS = 1
 
 def main():
 
@@ -234,10 +234,11 @@ def main():
             optimizee_bounding_func=optimizee.bounding_func)
     else:
         num_generations = 1000
-        population_size = 5
+        # moved from 5 to 20 to increase 'gene pool'
+        population_size = 20
         # population_size = 5
-        p_hof = 0.5 if population_size < 100 else 0.1
-        p_bob = 0.5
+        p_hof = 0.25 if population_size < 100 else 0.1
+        p_bob = 0.2
         # last_trajs = load_last_trajs(os.path.join(paths.output_dir_path, 'per_gen_trajectories'))
         # last_trajs = load_last_trajs(os.path.join(paths.root_dir_path, 'trajectories'))
         # if len(last_trajs):
@@ -247,7 +248,8 @@ def main():
         parameters = GeneticAlgorithmParameters(seed=None,
                         popsize=population_size,
                         CXPB=0.5,  # probability of mating 2 individuals
-                        MUTPB=0.8,  # probability of individual to mutate
+                        # note: moved from 0.8 to 0.5 mutpb to see if it removes bouncing
+                        MUTPB=0.5,  # probability of individual to mutate
                         NGEN=num_generations,
                         indpb=0.1,  # probability of "gene" to mutate
                         tournsize=population_size,  # number of best individuals to mate

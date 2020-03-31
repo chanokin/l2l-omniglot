@@ -79,17 +79,17 @@ def diff_class_vectors(apc, n_output):
     for c in apc:
         nids = list(apc[c].keys())
         if len(nids):
-            dcv[c][nids] += 1
+            dcv[c][nids] = 1.
 
     return dcv
 
 
-def vec_list_diffs(vec_list):
+def vec_list_diffs(vec_list, norm=2):
     norms = [np.sqrt(np.sum(x ** 2)) for x in vec_list]
     dots = []
     eucs = []
-    for ix, x in enumerate(vec_list):
-        for iy, y in enumerate(vec_list):
+    for ix, x in enumerate(vec_list[:-1]):
+        for iy, y in enumerate(vec_list[ix+1:]):
             if iy > ix:
                 xn = norms[ix]
                 xx = x / xn if xn > ZERO_FLOAT else x
@@ -97,8 +97,14 @@ def vec_list_diffs(vec_list):
                 yn = norms[iy]
                 yy = y / yn if yn > ZERO_FLOAT else y
 
-                # sqrt(2) == max distance
-                euc = np.sqrt(np.sum((xx - yy) ** 2)) / np.sqrt(2)
+                if norm == 2:
+                    # sqrt(2) == max distance
+                    euc = np.sqrt(np.sum((xx - yy) ** 2)) / np.sqrt(2)
+                elif norm == 1:
+                    euc = np.sum(np.abs(xx - yy))
+                else:
+                    euc = 0
+
                 eucs.append(euc)
 
                 dot = np.dot(xx, yy)
@@ -108,8 +114,8 @@ def vec_list_diffs(vec_list):
 
 
 def diff_class_dists(diff_class_vectors):
-    norms, dots, eucs = vec_list_diffs(diff_class_vectors)
-    return dots
+    norms, dots, eucs = vec_list_diffs(diff_class_vectors, norm=1)
+    return eucs
 
 def any_all_zero(apc, ipc):
     any_zero = False
