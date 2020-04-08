@@ -276,7 +276,7 @@ def main():
     else:
         num_generations = 1000
         if ON_JEWELS:
-            nodes = 8
+            nodes = 10
             gpus_per_node = 4
             population_size = gpus_per_node * nodes
         else:
