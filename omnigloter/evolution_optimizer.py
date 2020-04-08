@@ -308,14 +308,14 @@ class GeneticAlgorithmOptimizer(Optimizer):
                                 o2[:] = spawn()
                                 del o2.fitness.values
 
-            off_ids = np.random.choice(len(offspring), size=n_bobs, replace=False)
-            for i in range(n_bobs):
-                # off_i = int(offsp_ids[i])
-                off_i = int(off_ids[i])
-                bob_i = int(bob_ids[i])
-                logger.info("Inserting BoB {} to population".format(i+1))
-                offspring[off_i][:] = bob_inds[bob_i]
-                del offspring[off_i].fitness.values
+#             off_ids = np.random.choice(len(offspring), size=n_bobs, replace=False)
+#             for i in range(n_bobs):
+#                 # off_i = int(offsp_ids[i])
+#                 off_i = int(off_ids[i])
+#                 bob_i = int(bob_ids[i])
+#                 logger.info("Inserting BoB {} to population".format(i+1))
+#                 offspring[off_i][:] = bob_inds[bob_i]
+#                 del offspring[off_i].fitness.values
 
             # The population is entirely replaced by the offspring
             self.pop[:] = offspring
