@@ -11,7 +11,7 @@
 ### SBATCH --threads-per-core=1
 
 #SBATCH --gres=gpu:4
-#SBATCH --time=10:00:00
+#SBATCH --time=20:00:00
 #SBATCH --mail-user=g.pineda-garcia@sussex.ac.uk
 #SBATCH --mail-type=ALL
 
