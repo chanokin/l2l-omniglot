@@ -11,10 +11,12 @@ import os
 import logging
 from omnigloter import config, utils, analyse_network as analysis
 from omnigloter.snn_decoder import Decoder
+import copy
 
 logger = logging.getLogger("optimizee.mushroom_body")
 
 # L2L imports
+
 from l2l.optimizees.functions.optimizee import Optimizee
 from six import iterkeys, iteritems
 
@@ -32,7 +34,7 @@ class OmniglotOptimizee(Optimizee):
 
         print("In OmniglotOptimizee:")
         print(self.ind_param_ranges)
-        print(self.sim_params)
+#         print(self.sim_params)
 
     def create_individual(self):
         ipr = self.ind_param_ranges
@@ -49,43 +51,96 @@ class OmniglotOptimizee(Optimizee):
         return individual
 
 
-    def snn_multiproc(self, name, params):
-        # trying to avoid huge memory consumption after many individuals
+    def simulate(self, traj):
+        # TODO: trying to run many (N) simulations per GPU
+        #  in Juwels.
+        #  We need to:
+        #    - make N copies of the trajectory and
+        #      slightly alter them
+        #    - obtain the results and grade them accordingly
+        #    - replace the current trajectory with the best one
+        #    - return the winning fitness
+        #  This will (temporarily) increase the population size
+        #  and help explore the parameter space faster.
+        n_sims = self.sim_params['num_sims']
+        if n_sims == 1:
+            return self.simulate_one(traj)
+
+        n_params = len(traj.individual.keys)
+        p_change = 1.0/n_params
+        original_ind_idx = copy.copy(traj.individual.ind_idx)
+        ipr = self.ind_param_ranges
+        q = Queue()
+        trajs = [traj.copy() for _ in range(n_sims)]
+        n_inds = len(traj.individuals[0])
+        for tid, t in enumerate(trajs):
+            new_ind_idx = t.individual.ind_idx
+            new_ind_idx *= n_sims
+            new_ind_idx += tid
+            t.individual.ind_idx = new_ind_idx
+
+            if tid == 0:
+                continue
+
+            for k in t.individual.keys:
+                if np.random.uniform(0., 1.) <= p_change:
+                    print(tid, k)
+                    dv = np.random.normal(0., 1.0)
+                    k = k.split('.')[1]
+                    v = utils.bound(
+                            getattr(t.individual, k) + dv,
+                            ipr[k])
+
+                    setattr(t.individual, k, v)
 
 
-        # queue = Queue()
-        # p = Process(target=self.create_and_run, args=(name, params, queue))
-        # p.start()
-        # print("launched process, waiting ...")
-        # p.join()  # this blocks until the process terminates
-        # print("done running!")
-        # data = queue.get()
-        # return data
-        queue = None
-        return self.create_and_run(name, params, queue)
+        procs = [
+            Process(target=self.simulate_one, args=(trajs[i], q))
+            for i in range(n_sims)]
 
-    def create_and_run(self, name, params, queue=None):
-        print("Creating and running SNN")
-        snn = Decoder(name, params)
-        data = snn.run_pynn()
-        print("Done running simulation")
-        if queue is None:
-            return data
-        queue.put(data)
+        for p in procs:
+            p.start()
 
-    def simulate(self, traj, queue=None):
+
+        for p in procs:
+            p.join()
+
+        res = []
+        for _ in procs:
+            res.append(q.get())
+
+        wfits = []
+        for r in res:
+            wfits.append(np.sum(r))
+
+        win_idx = int(np.argmax(wfits))
+        for k in traj.individual.keys:
+            k = k.split('.')[1]
+            v = getattr(trajs[win_idx].individual, k)
+            setattr(traj.individual, k, v)
+
+        traj.individual.ind_idx = original_ind_idx
+
+        return res[win_idx]
+
+
+
+
+
+
+    def simulate_one(self, traj, queue=None):
         work_path = traj._parameters.JUBE_params.params['work_path']
         results_path = os.path.join(work_path, 'run_results')
         os.makedirs(results_path, exist_ok=True)
 
         bench_start_t = time.time()
         ipr = self.ind_param_ranges
-        for k in traj.par:
-            try:
-                print("{}:".format(k))
-                print("\t{}\n".format(traj.par[k]))
-            except:
-                print("\tNOT FOUND!\n")
+#        for k in traj.par:
+#            try:
+#                print("{}:".format(k))
+#                print("\t{}\n".format(traj.par[k]))
+#            except:
+#                print("\tNOT FOUND!\n")
 
         n_out = self.sim_params['output_size']
         n_test = self.sim_params['test_per_class']
@@ -96,10 +151,10 @@ class OmniglotOptimizee(Optimizee):
         # ind_idx = np.random.randint(0, 1000)
         ind_idx = traj.individual.ind_idx
         generation = traj.individual.generation
-        name = 'gen{:05d}_ind{:05d}'.format(generation, ind_idx)
+        name = 'gen{:010d}_ind{:010d}'.format(generation, ind_idx)
         ind_params = {k: getattr(traj.individual, k) for k in ipr}
-        print("ind_params:")
-        print(ind_params)
+#        print("ind_params:")
+#        print(ind_params)
         params = {
             'ind': ind_params,
             'sim': self.sim_params,
@@ -108,13 +163,27 @@ class OmniglotOptimizee(Optimizee):
 
         snn = Decoder(name, params)
         data = snn.run_pynn()
-        
-        if data['died']:
-            print(data['recs'])
 
-        diff_class_dots = []
-        min_v = -1.0 if data['died'] else 0.0
-        apc, ipc = None, None
+        print("\n\nExperiment took {} seconds\n".format(time.time() - bench_start_t))
+
+#         if data['died']:
+#             print(data['recs'])
+
+        vmin = -1.0 if data['died'] else -0.5
+        diff_class_vectors = []
+        diff_class_distances = []
+        diff_class_fitness = vmin
+
+        same_class_vectors = []
+        same_class_distances = []
+
+        same_class_fitness = vmin
+
+        diff_class_overlap = vmin
+        diff_class_repr = vmin
+        apc, ipc = [], []
+
+        any_zero, all_zero = False, False
         if not data['died']:
             ### Analyze results
             dt = self.sim_params['sample_dt']
@@ -124,200 +193,38 @@ class OmniglotOptimizee(Optimizee):
             start_t = end_t - n_class * n_test * dt
             apc, ipc = analysis.spiking_per_class(labels, out_spikes, start_t, end_t, dt)
 
-            print("\n\n\napc")
-            print(apc)
-            
-            print("\nipc")
-            print(ipc)
+            # print("\n\n\napc")
+            # print(apc)
 
-            diff_class_vectors = [np.zeros(n_out) for _ in apc]
-            for c in apc:
-                if len(apc[c]):
-                    kv = np.array(list(apc[c].keys()), dtype='int')
-                    diff_class_vectors[c - 1][kv] += 1
+            # print("\nipc")
+            # print(ipc)
 
+            diff_class_vectors = analysis.diff_class_vectors(apc, n_out)
             # punish inactivity on output cells,
             # every test sample should produce at least one spike in
             # the output population
-            any_zero = False
-            all_zero = True
-            n_out_class = 0
-            for v in diff_class_vectors:
-                if np.sum(v) > 0:
-                    all_zero = False
-                    n_out_class += 1
-                    continue
-                any_zero = True
-        else:
-            any_zero = True
-            all_zero = True
+            any_zero, all_zero = analysis.any_all_zero(apc, ipc)
 
+        print("any_zero, all_zero = {}, {}".format(any_zero, all_zero))
+        if not all_zero:
+            diff_class_distances = analysis.diff_class_dists(diff_class_vectors)
+            diff_class_overlap = analysis.overlap_score(apc, n_out)
+            diff_class_repr = analysis.individual_score(ipc, n_test, n_class)
 
-        if (not all_zero) and (SOFT_ZERO_PUNISH or not any_zero):
-            a = []
+            same_class_vectors = analysis.same_class_vectors(ipc, n_out)
 
-            for ix, x in enumerate(diff_class_vectors):
-                for iy, y in enumerate(diff_class_vectors):
-                    if iy > ix:
-                        xnorm = np.sqrt(np.sum(x ** 2))
-                        ynorm = np.sqrt(np.sum(y ** 2))
-                        if xnorm <= 1e-9 or ynorm <= 1e-9:
-                            dot = 0.0
-                        else:
-                            xnorm = x / xnorm
-                            ynorm = y / ynorm
-
-                            dot = np.sqrt(np.sum( (xnorm - ynorm) ** 2 )) / np.sqrt(2)
-                        a.append(dot)
-
-            diff_class_distances = np.asarray(a)
-            diff_dist = np.mean(diff_class_distances)
-
-            overlap = np.zeros_like(diff_class_vectors[0])
-            for _class, v in enumerate(diff_class_vectors):
-                overlap += v
-
-            overlap_len = np.sum(overlap > 0)
-            overlap[:] = overlap > 1
-            if overlap_len < n_class:
-                diff_class_overlap = 0.0
-                diff_class_repr = 0
-            else:
-                diff_class_overlap = 1.0 - (np.sum(overlap)/overlap_len)
-                # diff_class_overlap = 1.0 - (np.sum(overlap)/overlap_len)
-                diff_class_repr = float(n_out_class) / float(n_class)
-                # diff_class_overlap = overlap_len - np.sum(overlap)
-
-            diff_class_norms = np.linalg.norm(diff_class_vectors, axis=1)
-            print("{}\tdiff vectors - norms".format(name))
-            print(diff_class_norms)
-
-            a = []
-            for ix, x in enumerate(diff_class_vectors):
-                for iy, y in enumerate(diff_class_vectors):
-                    if iy > ix:
-                        dot = np.dot(x, y) / (diff_class_norms[ix] * diff_class_norms[iy])
-                        a.append(dot)
-
-            diff_class_dots = np.asarray(a)
-
-            print("{}\tdiff dots".format(name))
-            print(diff_class_dots)
-
-            same_class_vectors = {c-1: [np.zeros(n_out) for _ in ipc[c]] for c in ipc}
-            for c in ipc:
-                for i, x in enumerate(ipc[c]):
-                    for nid in ipc[c][x]:
-                        same_class_vectors[c - 1][i][nid] = 1
-
-            # punish inactivity on output cells,
-            # every test sample should produce at least one spike in
-            # the output population
-            for c in same_class_vectors:
-                for i, v in enumerate(same_class_vectors[c]):
-                    if np.sum(v) > 0:
-                        continue
-                    any_zero = True
-                    break
-
-            if SOFT_ZERO_PUNISH or not any_zero:
-                same_class_norms = {c: np.linalg.norm(same_class_vectors[c], axis=1) \
-                                                            for c in same_class_vectors}
-
-                print("{}\tsame vectors - norms".format(name))
-                print(same_class_norms)
-                same_class_dots = {}
-                same_class_distances = {}
-                same_class_count = 0.0
-                for c in same_class_vectors:
-                    a = []
-                    b = []
-                    for ix, x in enumerate(same_class_vectors[c]):
-                        for iy, y in enumerate(same_class_vectors[c]):
-                            if iy > ix:
-                                dot = np.dot(x, y) / (same_class_norms[c][ix] * same_class_norms[c][iy])
-                                a.append(dot)
-                                xnorm = x / np.sqrt(np.sum(x ** 2))
-                                ynorm = y / np.sqrt(np.sum(y ** 2))
-                                dist = np.sqrt(np.sum((xnorm - ynorm) ** 2)) / np.sqrt(2)
-                                b.append(dist)
-                                same_class_count += 1.0
-
-                    same_class_dots[c] = np.asarray(a)
-                    same_class_distances[c] = np.asarray(b)
-
-
-                print("{}\tsame dots".format(name))
-                print(same_class_dots)
-
-            else:
-                diff_class_dots = []
-        else:
-            diff_class_dots = []
-        # except:
-        #     print("Error in simulation, setting fitness to 0")
-        #     diff_class_dots = []
-
-        print("\n\nExperiment took {} seconds\n".format(time.time() - bench_start_t))
-
-        vmin = -1.0 if all_zero else 0.0
-        
-        if len(diff_class_dots) == 0:# or any_zero:
-            print("dots == 0, fitness = ", 0)
-            same_class_vectors = []
-            diff_class_vectors = [] ###already defined
-
-            diff_class_norms = []
-            diff_class_dots = []
-
-            same_class_norms = []
-            same_class_dots = []
-
-            diff_class_fitness = min_v#n_dots
-            same_class_fitness = min_v
-
-            diff_class_distances = []
-            same_class_distances = []
-            diff_dist = min_v
-
-            diff_class_overlap = min_v
-            diff_class_repr = min_v
-
-            apc = []
-
-            n_dots = 0
-            ipc = []
-            same_class_count = 0
-
-        else:
-            if np.any(diff_class_norms == 0.):
-                print("At least one of the norms was 0")
-                whr = np.where(np.isnan(diff_class_dots))[0]
-                if len(whr):
-                    diff_class_dots[whr] = 1.0 # 1 means same vector == bad
-
-                whr = np.where(np.isinf(diff_class_dots))[0]
-                if len(whr):
-                    diff_class_dots[whr] = 1.0 # 1 means same vector == bad
+            same_class_distances = \
+                        analysis.same_class_distances(same_class_vectors)
 
             # invert (1 - x) so that 0 == bad and 1 == good
-            # diff_class_fitness = 1.0 - np.mean(diff_class_dots)
-            diff_class_fitness = np.mean(1.0 - diff_class_dots)
-            # diff_class_fitness = 1.0 - np.sum(diff_class_dots)
-            # diff_class_fitness /= float(len(diff_class_dots))
-            # print("diff_fitness %s - %s = %s"%(1, np.sum(diff_class_dots)/n_dots, diff_class_fitness))
+            diff_class_fitness = 1.0 - np.mean(diff_class_distances)
 
-            same_fitnesses = np.asarray([
-                np.sum(same_class_dots[c]) if len(same_class_dots[c]) else 0.0 \
-                                                for c in sorted(same_class_dots.keys())
-            ])
+            same_fitnesses = np.asarray([ np.mean(same_class_distances[c])
+                                    for c in sorted(same_class_distances.keys()) ])
 
             # 0 means orthogonal vector == bad for same class activity
-            same_fitnesses[np.where(np.isnan(same_fitnesses))] = 0.0
-            same_fitnesses[np.where(np.isinf(same_fitnesses))] = 0.0
-            same_class_fitness = np.sum(same_fitnesses)
-            same_class_fitness /= same_class_count
-
+            # same_class_fitness = np.sum(same_fitnesses) / (n_class * n_test)
+            same_class_fitness = np.mean(same_fitnesses)
             print("same fitness ", same_class_fitness)
 
 
@@ -326,33 +233,48 @@ class OmniglotOptimizee(Optimizee):
             'aggregate_per_class': {
                 'spikes': apc,
                 'vectors': diff_class_vectors,
-                'norms': diff_class_norms,
-                'dots': diff_class_dots,
-                'cos_dist': diff_class_fitness,
                 'distances': diff_class_distances,
-                'euc_dist': diff_dist,
-                'fitness': diff_class_overlap,
+                'fitness': diff_class_fitness,
                 'num_dots': n_dots,
                 'overlap_dist': diff_class_overlap,
                 'class_dist': diff_class_repr,
+                'weights': {
+                    #overlapping activity is present
+                    'overlap_dist': 0.4,
+                    #how many classes are represented
+                    'class_dist': 0.3,
+                    # different class distance
+                    'fitness': 0.2,
+                },
             },
             'individual_per_class': {
                 'spikes': ipc,
                 'vectors': same_class_vectors,
-                'norms': same_class_norms,
-                'dots': same_class_dots,
-                'fitness': same_class_fitness,
-                'cos_dist': same_class_fitness,
                 'distances': same_class_distances,
-                'num_dots': same_class_count,
+                'fitness': same_class_fitness,
+                'weights': {
+                    # same class distance
+                    'fitness': 0.1,
+                },
             },
 
         }
 
-        fit0 = 0.35 * data['analysis']['aggregate_per_class']['overlap_dist'] + \
-               0.35 * data['analysis']['aggregate_per_class']['class_dist'] + \
-               0.2 * data['analysis']['aggregate_per_class']['euc_dist'] + \
-               0.1 * data['analysis']['individual_per_class']['cos_dist']
+
+        # overlap of output vectors, ideally should be 0, so we inverted the average
+        woverlap = data['analysis']['aggregate_per_class']['weights']['overlap_dist']
+        # spikes active per test presentation, ideally should be 1 per presentation, average
+        wclass = data['analysis']['aggregate_per_class']['weights']['class_dist']
+        # cosine distance between output vectors, 1 is bad so we inverted the average
+        wdiff = data['analysis']['aggregate_per_class']['weights']['fitness']
+        # cosine distance between output vectors per class, 1 is bad so we inverted the average
+        data['analysis']['individual_per_class']['weights']['fitness'] = 1.0 - woverlap - wclass - wdiff
+        wsame = data['analysis']['individual_per_class']['weights']['fitness']
+
+        fit0 = woverlap * data['analysis']['aggregate_per_class']['overlap_dist'] + \
+               wclass * data['analysis']['aggregate_per_class']['class_dist'] + \
+               wdiff * data['analysis']['aggregate_per_class']['fitness'] + \
+               wsame * data['analysis']['individual_per_class']['fitness']
 
         data['fitness'] = fit0
         ### Save results for this individual
@@ -374,11 +296,13 @@ class OmniglotOptimizee(Optimizee):
         del params
 
         gc.collect()
-        print("Done running simulation")
-
+        print("Fitness {}".format(fit0))
+        print("Done running simulation\n\n\n")
 
         if queue is not None:
-            queue.put([fit0])#, fit1,])
+            queue.put([fit0])
             return
+
+
 
         return [fit0]#, fit1,]

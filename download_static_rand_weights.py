@@ -19,7 +19,8 @@ start_w = max_w / 2.0
 min_delay = 0.1
 
 sim.setup(timestep, min_delay=min_delay,
-          backend='SingleThreadedCPU'
+          backend='CUDA'
+          # backend='SingleThreadedCPU'
           )
 
 pre = sim.Population(10, sim.SpikeSourcePoisson(**{'rate': 10}))

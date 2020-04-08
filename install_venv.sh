@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-JUBE=0
+JUBE=1
 BASE=`pwd`
 VENV=$BASE/venv3
 GENN=$BASE/genn
@@ -10,7 +10,7 @@ SWIG_TMP=$BASE/swig_tmp
 SWIG=$BASE/swig
 NVCC=`which nvcc`
 CUDA=`echo $NVCC | sed 's/\/bin\/nvcc//g'`
-INSTALL_SWIG=0
+INSTALL_SWIG=1
 INSTALL_JUBE=1
 INSTALL_VENV=1
 
@@ -71,12 +71,12 @@ make CPU_ONLY=True DYNAMIC=True LIBRARY_DIRECTORY=$GENN/pygenn/genn_wrapper/
 #make CPU_ONLY=True MPI_ENABLE=True LIBRARY_DIRECTORY=$GENN/pygenn/genn_wrapper/
 #make CPU_ONLY=True DYNAMIC=True MPI_ENABLE=True LIBRARY_DIRECTORY=$GENN/pygenn/genn_wrapper/
 
-sed -i 's/numpy>1\.6, < 1\.15/numpy>1\.6/g' setup.py
+#sed -i 's/numpy>1\.6, < 1\.15/numpy>1\.6/g' setup.py
 python setup.py develop
 
 git clone https://github.com/genn-team/pynn_genn $PYNN
 cd $PYNN
-sed -i 's/numpy>1\.6, < 1\.15/numpy>1\.6/g' setup.py
+#sed -i 's/numpy>1\.6, < 1\.15/numpy>1\.6/g' setup.py
 python setup.py develop
 
 if [ $INSTALL_JUBE -eq 1 ]
