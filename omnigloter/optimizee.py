@@ -168,7 +168,7 @@ class OmniglotOptimizee(Optimizee):
 
 #         if data['died']:
 #             print(data['recs'])
-
+        overactive = 0.
         vmin = -1.0 if data['died'] else -0.5
         diff_class_vectors = []
         diff_class_distances = []
@@ -204,10 +204,15 @@ class OmniglotOptimizee(Optimizee):
             # every test sample should produce at least one spike in
             # the output population
             any_zero, all_zero = analysis.any_all_zero(apc, ipc)
-
+            # balance the push to activity with punishment for
+            # over-active 'classes'
+            above_thresh = analysis.vectors_above_threshold(
+                    diff_class_vectors, config.ACTIVITY_THRESHOLD)
         print("any_zero, all_zero = {}, {}".format(any_zero, all_zero))
         if not all_zero:
             diff_class_distances = analysis.diff_class_dists(diff_class_vectors)
+            max_dist = config.MAX_VECTOR_DIST
+            diff_class_distances[:] = np.clip(diff_class_distances, 0., max_dist)/max_dist
             diff_class_overlap = analysis.overlap_score(apc, n_out)
             diff_class_repr = analysis.individual_score(ipc, n_test, n_class)
 
@@ -217,7 +222,10 @@ class OmniglotOptimizee(Optimizee):
                         analysis.same_class_distances(same_class_vectors)
 
             # invert (1 - x) so that 0 == bad and 1 == good
-            diff_class_fitness = 1.0 - np.mean(diff_class_distances)
+            # diff_class_fitness = 1.0 - np.mean(diff_class_distances) 
+            # punish overactive classes
+            overactive = len(above_thresh) * config.ABOVE_THRESH_W
+            diff_class_fitness = np.mean(diff_class_distances)
 
             same_fitnesses = np.asarray([ np.mean(same_class_distances[c])
                                     for c in sorted(same_class_distances.keys()) ])
@@ -240,11 +248,11 @@ class OmniglotOptimizee(Optimizee):
                 'class_dist': diff_class_repr,
                 'weights': {
                     #overlapping activity is present
-                    'overlap_dist': 0.4,
+                    'overlap_dist': config.OVERLAP_WEIGHT,
                     #how many classes are represented
-                    'class_dist': 0.3,
+                    'class_dist': config.REPRESENTATION_WEIGHT,
                     # different class distance
-                    'fitness': 0.2,
+                    'fitness': config.DIFFERENT_CLASS_DISTANCE_WEIGHT,
                 },
             },
             'individual_per_class': {
@@ -254,7 +262,7 @@ class OmniglotOptimizee(Optimizee):
                 'fitness': same_class_fitness,
                 'weights': {
                     # same class distance
-                    'fitness': 0.1,
+                    'fitness': config.SAME_CLASS_DISTANCE_WEIGHT,
                 },
             },
 
@@ -265,16 +273,18 @@ class OmniglotOptimizee(Optimizee):
         woverlap = data['analysis']['aggregate_per_class']['weights']['overlap_dist']
         # spikes active per test presentation, ideally should be 1 per presentation, average
         wclass = data['analysis']['aggregate_per_class']['weights']['class_dist']
-        # cosine distance between output vectors, 1 is bad so we inverted the average
+        # MANHATTAN distance between output vectors, 1 is bad so we inverted the average
         wdiff = data['analysis']['aggregate_per_class']['weights']['fitness']
         # cosine distance between output vectors per class, 1 is bad so we inverted the average
-        data['analysis']['individual_per_class']['weights']['fitness'] = 1.0 - woverlap - wclass - wdiff
+        # data['analysis']['individual_per_class']['weights']['fitness'] = 1.0 - woverlap - wclass - wdiff
         wsame = data['analysis']['individual_per_class']['weights']['fitness']
 
         fit0 = woverlap * data['analysis']['aggregate_per_class']['overlap_dist'] + \
                wclass * data['analysis']['aggregate_per_class']['class_dist'] + \
                wdiff * data['analysis']['aggregate_per_class']['fitness'] + \
-               wsame * data['analysis']['individual_per_class']['fitness']
+               wsame * data['analysis']['individual_per_class']['fitness'] - \
+               overactive
+
 
         data['fitness'] = fit0
         ### Save results for this individual

@@ -240,7 +240,7 @@ class Decoder(object):
                 test_fnames.append(f)
 
         t_creation_start = time.time()
-        tmp = []
+        tmp = {}
         labels = []
         spikes = {i: None for i in range(nlayers)}
         shapes = {i: None for i in range(nlayers)}
@@ -251,15 +251,25 @@ class Decoder(object):
         for i, f in enumerate(fnames):
 
             with np.load(f, allow_pickle=True) as spk:
+                all_divs = spk['keepers'].item()
+                in_shape = spk['scaled_image'].shape
                 labels.append(spk['label'].item())
-                tmp[:] = utils.split_spikes(spk['spike_source_array'], nlayers)
+                tmp.clear()
+                tmp = utils.split_spikes(
+                        utils.compress_spikes_array(
+                            spk['spike_source_array'],
+                            start_t=0, end_t=500.,
+                            randomize=False,
+                            period=dt//3,
+                            decimals=0),
+                        nlayers)
 
                 for tidx in range(nlayers):
-                    divs = (1, 1) if tidx < 2 else params['sim']['input_divs']
+                    # divs = (1, 1) if tidx < 2 else params['sim']['input_divs']
+                    divs = all_divs[tidx]
                     shape, tmp[tidx][:] = utils.reduce_spike_place(tmp[tidx], in_shape, divs)
                     if shapes[tidx] is None:
                         shapes[tidx] = shape
-
 
                     tmp[tidx][:] = utils.add_noise(prob_noise, tmp[tidx], dt_idx*dt, dt_idx*dt + dt*0.5)
                     if spikes[tidx] is None:
@@ -283,11 +293,22 @@ class Decoder(object):
         shuffle(test_fnames)
         for f in test_fnames:
             with np.load(f, allow_pickle=True) as spk:
+                all_divs = spk['keepers'].item()
+                in_shape = spk['scaled_image'].shape
                 labels.append(spk['label'].item())
-                tmp[:] = utils.split_spikes(spk['spike_source_array'], nlayers)
+                tmp.clear()
+                tmp = utils.split_spikes(
+                        utils.compress_spikes_array(
+                            spk['spike_source_array'],
+                            start_t=0, end_t=500.,
+                            randomize=False,
+                            period=dt//3,
+                            decimals=0),
+                        nlayers)
 
                 for tidx in range(nlayers):
-                    divs = (1, 1) if tidx < 2 else params['sim']['input_divs']
+                    # divs = (1, 1) if tidx < 2 else params['sim']['input_divs']
+                    divs = all_divs[tidx]
                     shape, tmp[tidx][:] = utils.reduce_spike_place(tmp[tidx], in_shape, divs)
                     if shapes[tidx] is None:
                         shapes[tidx] = shape

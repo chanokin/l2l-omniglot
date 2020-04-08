@@ -38,7 +38,7 @@ if config.DEBUG:
 elif ON_JEWELS:
     NUM_SIMS = 5
 elif ON_TITAN:
-    NUM_SIMS = 15
+    NUM_SIMS = 1
 
 
 def main():
@@ -275,12 +275,15 @@ def main():
             optimizee_bounding_func=optimizee.bounding_func)
     else:
         num_generations = 1000
-        nodes = 8
-        gpus_per_node = 4
-        population_size = gpus_per_node * nodes
+        if ON_JEWELS:
+            nodes = 8
+            gpus_per_node = 4
+            population_size = gpus_per_node * nodes
+        else:
+            population_size = 20
         # population_size = 5
         p_hof = 0.25 if population_size < 100 else 0.1
-        p_bob = 0.5
+        p_bob = 0.2
         # last_trajs = load_last_trajs(os.path.join(
         #    paths.output_dir_path, 'per_gen_trajectories'))
         # last_trajs = load_last_trajs(os.path.join(
@@ -293,7 +296,8 @@ def main():
             seed=None,
             popsize=population_size,
             CXPB=0.5,  # probability of mating 2 individuals
-            MUTPB=0.5,  # probability of individual to mutate
+            # note: moved from 0.8 to 0.6 mutpb to see if it removes bouncing
+            MUTPB=0.6,  # probability of individual to mutate
             NGEN=num_generations,
             indpb=0.1,  # probability of "gene" to mutate
             # number of best individuals to mate
