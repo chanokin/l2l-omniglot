@@ -54,7 +54,7 @@ else:
 EXP_PROB_RANGE = (0.5, 0.75000001) if DEBUG else (0.05, 0.5)
 OUTPUT_PROB_RANGE = (0.5, 0.750000001) if DEBUG else (0.05, 0.5)
 A_PLUS = (0.1, 5.0000000001) if DEBUG else (0.01, 5.0)
-A_MINUS = (0.1, 1.000000001) if DEBUG else (0.001, 2.0)
+A_MINUS = (0.1, 1.000000001) if DEBUG else (0.001, 5.0)
 STD_DEV = (3.0, 3.00000001) if DEBUG else (0.5, 5.0)
 DISPLACE = (0.0,)#01, 0.00100000001) if DEBUG else (0.0001, 0.1)
 MAX_DT = (80.0, 80.00000001) if DEBUG else (float(SAMPLE_DT), SAMPLE_DT*2.0)
@@ -122,6 +122,15 @@ else:
 
 N_PER_CLASS = 20
 OUTPUT_SIZE = N_CLASSES * N_PER_CLASS
+MAX_ACTIVE_PER_CLASS = int(OUTPUT_SIZE / 0.5)
+ACTIVITY_THRESHOLD = 0.5 * OUTPUT_SIZE
+MAX_VECTOR_DIST = 160.0
+ABOVE_THRESH_W = 0.5 / N_CLASSES
+OVERLAP_WEIGHT = 0.3
+REPRESENTATION_WEIGHT = 0.4
+DIFFERENT_CLASS_DISTANCE_WEIGHT = 0.3
+SAME_CLASS_DISTANCE_WEIGHT = 0.
+
 
 # CONN_DIST = 3
 # CONN_DIST = 9
@@ -235,8 +244,8 @@ BASE_PARAMS = {
     'v_rest': -65.,  # mV
     'tau_m': 10.,  # ms
     'tau_refrac': 1.,  # ms
-    'tau_syn_E': 1., # ms
-    'tau_syn_I': 1., # ms
+    'tau_syn_E': 3., # ms
+    'tau_syn_I': 5., # ms
 }
 
 # tau_thresh = 25.0

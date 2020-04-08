@@ -561,6 +561,27 @@ def split_ssa(ssa, n_steps, duration, round_times):
 
     return s
 
+def compress_spikes_list(spikes_list, start_t, end_t, randomize=True, period=10, decimals=0):
+    sl = np.array(spikes_list)
+    whr = np.where(np.logical_and(start_t <= sl, sl < end_t))[0]
+    if len(whr) == 0:
+        return []
+
+    if randomize:
+        t = np.around(
+                np.random.uniform(start_t, start_t + period),
+                decimals=decimals)
+    else:
+        t = np.around(
+                period * sl[whr]/float(end_t - start_t),
+                decimals=decimals)
+    return [t]
+
+def compress_spikes_array(spikes, start_t, end_t, randomize=True, period=10, decimals=0):
+    return np.asarray([
+        compress_spikes_list(s, start_t, end_t, randomize, period, decimals)
+            for s in spikes
+    ])
 
 
 def load_last_trajs(path):

@@ -5,6 +5,14 @@ from collections import OrderedDict
 
 ZERO_FLOAT = 1.0e-9
 
+def vectors_above_threshold(vectors, threshold):
+    vs = [np.sum(v) for v in vectors]
+    return [i for i, s in enumerate(vs) if s >= threshold]
+
+def per_neuron_rate(spikes, start_t):
+    return [len(np.where(np.asarray(times) >= start_t)[0])
+            for times in spikes]
+
 def spiking_per_class(indices, spikes, start_t, end_t, dt):
     uindices = np.unique(indices)
     aggregate_per_class = {}
@@ -88,6 +96,10 @@ def vec_list_diffs(vec_list, norm=2):
     norms = [np.sqrt(np.sum(x ** 2)) for x in vec_list]
     dots = []
     eucs = []
+    zero_ids = []
+    euc = 0.
+    xn, yn = 0., 0.
+    # max_idx = np.argmax(np.sum(v) for v in vec_list)
     for ix, x in enumerate(vec_list[:-1]):
         for iy, y in enumerate(vec_list[ix+1:]):
             if iy > ix:
@@ -96,6 +108,12 @@ def vec_list_diffs(vec_list, norm=2):
 
                 yn = norms[iy]
                 yy = y / yn if yn > ZERO_FLOAT else y
+                zid = [None, None]
+                if xn < 1:
+                    zid[0] = ix
+                if yn < 1:
+                    zid[1] = iy
+                zero_ids.append( zid )
 
                 if norm == 2:
                     # sqrt(2) == max distance
@@ -103,18 +121,21 @@ def vec_list_diffs(vec_list, norm=2):
                 elif norm == 1:
                     euc = np.sum(np.abs(xx - yy))
                 else:
-                    euc = 0
+                    euc = 0.
 
                 eucs.append(euc)
 
                 dot = np.dot(xx, yy)
                 dots.append(dot)
 
-    return np.asarray(norms), np.asarray(dots), np.asarray(eucs)
+    return np.asarray(norms), np.asarray(dots), np.asarray(eucs), np.asarray(zero_ids)
 
 
 def diff_class_dists(diff_class_vectors):
-    norms, dots, eucs = vec_list_diffs(diff_class_vectors, norm=1)
+    norms, dots, eucs, zids = vec_list_diffs(diff_class_vectors, norm=1)
+    for out_id, ii in enumerate(zids):
+        if ii[0] is not None or ii[1] is not None:
+            eucs[out_id] = 0.
     return eucs
 
 def any_all_zero(apc, ipc):
@@ -147,7 +168,11 @@ def same_class_vectors(ipc, n_out):
 def same_class_distances(same_class_vectors):
     scd = {}
     for c in same_class_vectors:
-        norms, dots, eucs = vec_list_diffs(same_class_vectors[c])
+        norms, dots, eucs, zids = vec_list_diffs(same_class_vectors[c])
+        for out_id, ii in enumerate(zids):
+            if ii[0] is not None or ii[1] is not None:
+                dots[out_id] = 0.
+
         scd[c] = np.asarray(dots)
 
     return scd

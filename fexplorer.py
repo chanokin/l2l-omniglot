@@ -25,7 +25,7 @@ GRADDESC, EVOSTRAT, GENALG = range(3)
 OPTIMIZER = GENALG
 ON_JEWELS = bool(0)
 ON_TITAN = bool(1)
-USE_MPI = bool(0)
+USE_MPI = bool(1)
 MULTIPROCESSING = (ON_JEWELS or USE_MPI or bool(0)) and (not config.DEBUG)
 NUM_SIMS = 1
 
@@ -249,7 +249,7 @@ def main():
                         popsize=population_size,
                         CXPB=0.5,  # probability of mating 2 individuals
                         # note: moved from 0.8 to 0.5 mutpb to see if it removes bouncing
-                        MUTPB=0.5,  # probability of individual to mutate
+                        MUTPB=0.6,  # probability of individual to mutate
                         NGEN=num_generations,
                         indpb=0.1,  # probability of "gene" to mutate
                         tournsize=population_size,  # number of best individuals to mate
