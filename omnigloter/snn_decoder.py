@@ -828,11 +828,16 @@ class Decoder(object):
                 break
 
 
-        if not __died__:
-            for pop in net['populations']:
-                if pop in config.RECORD_SPIKES:
+        for pop in net['populations']:
+            if pop in config.RECORD_SPIKES:
+                try:
                     records[pop] = self._get_recorded(pop)
+                except:
+                    sys.stdout.write("\n\n\n\tUnable to get spikes from {}\n\n".format(pop))
+                    sys.stdout.flush()
 
+                
+        if not __died__:
             for proj in net['projections']:
                 if proj in config.RECORD_WEIGHTS:
                     if proj == 'input to mushroom':

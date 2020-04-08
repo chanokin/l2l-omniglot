@@ -24,7 +24,7 @@ GRADDESC, EVOSTRAT, GENALG = range(3)
 #OPTIMIZER = GRADDESC
 OPTIMIZER = GENALG
 ON_JEWELS = bool(0)
-USE_MPI = bool(0)
+USE_MPI = bool(1)
 MULTIPROCESSING = (ON_JEWELS or USE_MPI or bool(0))
 
 def main():
@@ -215,8 +215,8 @@ def main():
             optimizee_bounding_func=optimizee.bounding_func)
     else:
         num_generations = 1000
-        # population_size = 20
-        population_size = 5
+        population_size = 20
+        # population_size = 5
         p_hof = 0.25 if population_size < 100 else 0.1
         p_bob = 0.5
         last_trajs = load_last_trajs(os.path.join(paths.root_dir_path, 'trajectories'))
