@@ -227,8 +227,9 @@ class GeneticAlgorithmOptimizer(Optimizer):
         self.hall_of_fame.update(self.eval_pop_inds)
 
         logger.info("-- Hall of fame --")
-        n_bobs = self.n_bobs
-
+        # n_bobs = self.n_bobs
+        # bob_inds = tools.selBest(self.hall_of_fame, n_bobs)
+        n_bobs = self.n_hof
         bob_inds = tools.selBest(self.hall_of_fame, n_bobs)
 
         for hof_ind in bob_inds:
