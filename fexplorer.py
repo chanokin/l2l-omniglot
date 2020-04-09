@@ -213,7 +213,7 @@ def main():
     # dbs = ['Braille']
     # dbs = ['Blackfoot_-Canadian_Aboriginal_Syllabics-',
     #        'Gujarati', 'Syriac_-Estrangelo-']
-    dbs = ['Futurama', 'Braille']
+    # dbs = ['Futurama', 'Braille']
     # dbs = ['Cyrillic', 'Futurama', 'Braille']
     if config.DEBUG:
         dbs = ['Braille']
