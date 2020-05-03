@@ -33,7 +33,7 @@ def main():
     plt.plot(np.asarray(average), linestyle='-', linewidth=2.0, label='Average')
     # plt.plot(np.asarray(minimum), 'v', linestyle='-.', label='min')
 
-    plt.axhline(1.0, linestyle='--', color='magenta', linewidth=1, label='Maximum')
+#     plt.axhline(1.0, linestyle='--', color='magenta', linewidth=1, label='Maximum')
     # plt.axhline(total_different, linestyle='--', color='magenta', linewidth=0.5)
     plt.axhline(0, linestyle='--', color='gray', linewidth=1)
     ax.set_xlabel('generation')

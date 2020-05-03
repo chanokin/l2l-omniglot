@@ -172,11 +172,11 @@ fig = plt.figure(figsize=(fw*np.sqrt(2), fw))
 ax = plt.subplot(1, 1, 1)
 
 for g in gkeys:
-    plt.plot(g * np.ones_like(fitnesses[g]), np.clip(fitnesses[g],0, np.inf), '.b', alpha=0.1)
+    plt.plot(g * np.ones_like(fitnesses[g]), np.clip(fitnesses[g],0, np.inf), '.b', alpha=0.2)
 
-plt.plot(gkeys, np.asarray(maximum), '^', linestyle=':', label='max')
-plt.plot(gkeys, np.asarray(average), 'o', linestyle='-', label='avg')
-plt.plot(gkeys, np.asarray(minimum), 'v', linestyle='-.', label='min')
+plt.plot(gkeys, np.asarray(maximum),  linestyle=':', label='max')
+plt.plot(gkeys, np.asarray(average),  linestyle='-', label='avg')
+#plt.plot(gkeys, np.asarray(minimum), 'v', linestyle='-.', label='min')
 
 # plt.axhline(total, linestyle='--', color='magenta', linewidth=1)
 # plt.axhline(total_different, linestyle='--', color='magenta', linewidth=0.5)
@@ -199,7 +199,7 @@ fw = 8
 fig = plt.figure(figsize=(fw*np.sqrt(2), fw))
 ax = plt.subplot(1, 1, 1)
 
-plt.plot(gkeys, np.asarray(maximum), '^', linestyle=':', label='max')
+plt.plot(gkeys, np.asarray(maximum), linestyle='-', label='max')
 
 # plt.axhline(total, linestyle='--', color='magenta', linewidth=1)
 # plt.axhline(total_different, linestyle='--', color='magenta', linewidth=0.5)
@@ -228,7 +228,7 @@ for g in gkeys:
 #         continue
     ax = plt.subplot(nrows, ncols, g+1)
     ax.set_title("Gen %d   n_ind %d"%(g+1, len(fitnesses[g])))
-    plt.hist(fitnesses[g], range=(0.0, 1.0), bins=10)
+    plt.hist(fitnesses[g], bins=20)
 #     ax.set_xticks(np.arange(0, total+11, 10))
 ax.margins(0.1)
 plt.tight_layout()
@@ -263,11 +263,11 @@ for i in range(n_params):
         ax = plt.subplot(n_rows, n_cols, plt_idx)
         im = plt.scatter(i_params[argsort], j_params[argsort],
                 c=scores[argsort],
-                s= alpha[argsort] * 100.0,
+#                 s= alpha[argsort] * 100.0,
 #                 s=(100.0 - scores)+ 5.0,
 #                 s=scores + 5.0,
-                vmin=0.0, vmax=1.0,
-                cmap='Spectral',
+                vmin=0.0, # vmax=1.0,
+                cmap='gnuplot',
 #                 alpha=0.7,
                 linewidths=0,
                 edgecolors='none',

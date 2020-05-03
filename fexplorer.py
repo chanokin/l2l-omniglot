@@ -249,7 +249,7 @@ def main():
                         popsize=population_size,
                         CXPB=0.5,  # probability of mating 2 individuals
                         # note: moved from 0.8 to 0.5 mutpb to see if it removes bouncing
-                        MUTPB=0.6,  # probability of individual to mutate
+                        MUTPB=0.7,  # probability of individual to mutate
                         NGEN=num_generations,
                         indpb=0.1,  # probability of "gene" to mutate
                         tournsize=population_size,  # number of best individuals to mate
