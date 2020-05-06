@@ -170,6 +170,12 @@ class OmniglotOptimizee(Optimizee):
 #             print(data['recs'])
         overactive = 0.
         vmin = -1.0 if data['died'] else -0.5
+
+        sum_dists = 0 
+        n_empty = n_test * n_class
+        n_sharing = n_out 
+        n_spikes = n_out * n_empty
+
         diff_class_vectors = []
         diff_class_distances = []
         diff_class_fitness = vmin
@@ -184,13 +190,20 @@ class OmniglotOptimizee(Optimizee):
         apc, ipc = [], []
 
         any_zero, all_zero = False, False
+        dt = self.sim_params['sample_dt']
+        n_out = config.OUTPUT_SIZE
+        labels = data['input']['labels']
+        end_t = self.sim_params['duration']
+        # start_t = end_t - n_class * n_test * dt
+        start_t = analysis.get_test_start_t(data) 
+        avg_class_sample_distance = 0
+        avg_activity_error = (config.OUTPUT_SIZE - config.TARGET_ACTIVITY_PER_SAMPLE) ** 3
+        avg_sharing_class_error = n_class ** 3
+        avg_freq_error = (n_test * n_class - config.TARGET_FREQUENCY_PER_OUTPUT_NEURON) ** 3
+        act_per_samp = []
         if not data['died']:
             ### Analyze results
-            dt = self.sim_params['sample_dt']
             out_spikes = data['recs']['output'][0]['spikes']
-            labels = data['input']['labels']
-            end_t = self.sim_params['duration']
-            start_t = end_t - n_class * n_test * dt
             apc, ipc = analysis.spiking_per_class(labels, out_spikes, start_t, end_t, dt)
 
             # print("\n\n\napc")
@@ -208,6 +221,7 @@ class OmniglotOptimizee(Optimizee):
             # over-active 'classes'
             above_thresh = analysis.vectors_above_threshold(
                     diff_class_vectors, config.ACTIVITY_THRESHOLD)
+
         print("any_zero, all_zero = {}, {}".format(any_zero, all_zero))
         if not all_zero:
             diff_class_distances = analysis.diff_class_dists(diff_class_vectors)
@@ -235,7 +249,30 @@ class OmniglotOptimizee(Optimizee):
             same_class_fitness = np.mean(same_fitnesses)
             print("same fitness ", same_class_fitness)
 
+        if 'output' in data['recs']:
+            start_t = analysis.get_test_start_t(data)
+            dt = data['params']['sim']['sample_dt']  
+            _spikes, _labels = analysis.get_test_spikes_and_labels(data) 
+            n_empty = analysis.get_num_inactive(_labels, _spikes, start_t, dt) 
+            n_sharing = analysis.num_neurons_sharing_class(_labels, _spikes, start_t, dt)
+            n_spikes = analysis.get_num_spikes(_spikes)
+            sum_dists = np.sum(diff_class_distances) 
 
+        
+            act_per_samp = analysis.activity_per_sample(
+                _labels, _spikes, start_t, dt)
+            avg_class_sample_distance = analysis.mean_per_sample_class_distance(
+                act_per_samp, _labels, n_out)
+        
+            
+            avg_activity_error = analysis.mean_error_sample_target_activity(
+                config.TARGET_ACTIVITY_PER_SAMPLE, act_per_samp, power=2)
+
+            avg_sharing_class_error = analysis.mean_neurons_sharing_class(
+                _labels, _spikes, start_t, dt) ** 2
+
+            avg_freq_error = analysis.mean_target_frequency_error(
+                config.TARGET_FREQUENCY_PER_OUTPUT_NEURON, _spikes, power=2) 
 
         data['analysis'] = {
             'aggregate_per_class': {
@@ -246,6 +283,12 @@ class OmniglotOptimizee(Optimizee):
                 'num_dots': n_dots,
                 'overlap_dist': diff_class_overlap,
                 'class_dist': diff_class_repr,
+                'n_empty': n_empty,
+                'n_sharing': n_sharing,
+                'n_spikes': n_spikes,
+                'sum_dists': sum_dists,
+                'avg_sharing_class_error': avg_sharing_class_error,
+                'avg_freq_error': avg_freq_error,
                 'weights': {
                     #overlapping activity is present
                     'overlap_dist': config.OVERLAP_WEIGHT,
@@ -260,6 +303,9 @@ class OmniglotOptimizee(Optimizee):
                 'vectors': same_class_vectors,
                 'distances': same_class_distances,
                 'fitness': same_class_fitness,
+                'act_per_sample': act_per_samp,
+                'avg_class_samp_distance': avg_class_sample_distance,
+                'avg_activity_error': avg_activity_error,
                 'weights': {
                     # same class distance
                     'fitness': config.SAME_CLASS_DISTANCE_WEIGHT,
@@ -279,14 +325,20 @@ class OmniglotOptimizee(Optimizee):
         # data['analysis']['individual_per_class']['weights']['fitness'] = 1.0 - woverlap - wclass - wdiff
         wsame = data['analysis']['individual_per_class']['weights']['fitness']
 
-        fit0 = woverlap * data['analysis']['aggregate_per_class']['overlap_dist'] + \
+        fit00 = woverlap * data['analysis']['aggregate_per_class']['overlap_dist'] + \
                wclass * data['analysis']['aggregate_per_class']['class_dist'] + \
                wdiff * data['analysis']['aggregate_per_class']['fitness'] + \
                wsame * data['analysis']['individual_per_class']['fitness'] - \
                overactive
 
+        data['fitness0'] = fit00
 
+        fit01 = sum_dists / (n_empty + n_sharing + n_spikes)
+        data['fitness1'] = fit01
+
+        fit0 = avg_class_sample_distance - avg_activity_error - avg_sharing_class_error - avg_freq_error
         data['fitness'] = fit0
+ 
         ### Save results for this individual
 
         fname = 'data_{}.npz'.format(name)

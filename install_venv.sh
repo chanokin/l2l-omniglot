@@ -10,7 +10,7 @@ SWIG_TMP=$BASE/swig_tmp
 SWIG=$BASE/swig
 NVCC=`which nvcc`
 CUDA=`echo $NVCC | sed 's/\/bin\/nvcc//g'`
-INSTALL_SWIG=1
+INSTALL_SWIG=0
 INSTALL_JUBE=1
 INSTALL_VENV=1
 
@@ -48,15 +48,15 @@ ln -s $BASE/omnigloter $VENV/lib/$PYVER/site-packages/
 
 source $VENV/bin/activate
 
-pip install --upgrade pip
-pip install Cython
-pip install numpy
-pip install scipy
-pip install matplotlib
-pip install setuptools
-pip install scikit-learn
-pip install skutil
-pip install pyyaml
+#pip install --upgrade pip
+#pip install Cython
+#pip install numpy
+#pip install scipy
+#pip install matplotlib
+#pip install setuptools
+#pip install scikit-learn
+#pip install skutil
+#pip install pyyaml
 
 git clone https://github.com/genn-team/genn $GENN
 cd $GENN

@@ -87,7 +87,10 @@ class Decoder(object):
         }
 
         if config.SIM_NAME == config.GENN:
-            setup_args['model_name'] = self.name
+            name = self.name
+            name = name[name.find('ind'):]
+            setup_args['model_name'] = name
+            # setup_args['model_name'] = self.name
             setup_args['backend'] = config.BACKEND
 
             if params['sim']['on_juwels']:
@@ -835,7 +838,7 @@ class Decoder(object):
                 except:
                     sys.stdout.write("\n\n\n\tUnable to get spikes from {}\n\n".format(pop))
                     sys.stdout.flush()
-
+                    __died__ = True
                 
         if not __died__:
             for proj in net['projections']:

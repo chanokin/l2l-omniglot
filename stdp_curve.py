@@ -20,7 +20,7 @@ base_params = {
     'cm': 0.09,  # nF
     'v_reset': -70.,  # mV
     'v_rest': -65.,  # mV
-    'v_thresh': -55.,  # mV
+    'v_threshold': -55.,  # mV
     # 'e_rev_I': -e_rev, #mV
     # 'e_rev_E': 0.,#e_rev, #mV
     'tau_m': 10.,  # ms
@@ -38,13 +38,12 @@ delays = [0.1]
 time_dep_vars = {
     "A_plus": 0.10,
     "A_minus": 0.01,
-    "mean": 0.0,
-    "std": 10.0,
-    "displace": 0.0,
-    "maxDt": 80.0,
+    "tau_plus": 10.0,
+    "max_learn_t": 200.0,
+    "tau_minus": 80.0,
 }
 
-num_dt = int(time_dep_vars['maxDt'] * 2.5)
+num_dt = int(time_dep_vars['tau_minus'] * 2.5)
 start_dt = - (num_dt // 2)
 # start_dt, num_dt = -5, 10
 sim_time = np.round(1.5 * num_dt)
@@ -121,14 +120,14 @@ plt.axhline(-time_dep_vars['A_minus']*max_w,
             linestyle='-', linewidth=1, color='purple', label='A_minus')
 
 
-plt.axvline(time_dep_vars['maxDt'],
+plt.axvline(time_dep_vars['tau_minus'],
             linestyle='-', linewidth=1, color='cyan', label='LTD')
-plt.axvline(-time_dep_vars['maxDt'],
+plt.axvline(-time_dep_vars['tau_minus'],
             linestyle='-', linewidth=1, color='cyan')
 
-plt.axvline(time_dep_vars['std'],
+plt.axvline(time_dep_vars['tau_plus'],
             linestyle='-', linewidth=1, color='green', label='LTP')
-plt.axvline(-time_dep_vars['std'],
+plt.axvline(-time_dep_vars['tau_plus'],
             linestyle='-', linewidth=1, color='green')
 
 

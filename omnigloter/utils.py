@@ -287,7 +287,7 @@ def wta_mush_conn_list(in_shapes, num_zones, out_size, iweight, eweight, delay):
 
 
 def output_connection_list(kenyon_size, decision_size, prob_active, active_weight,
-                           inactive_scaling, seed=None, max_pre=50000):
+                           inactive_scaling, seed=None, max_pre=10000):
     n_pre = min(max_pre, kenyon_size)
     n_conns = n_pre * decision_size
     print("output_connection_list: n_conns = {}".format(n_conns))

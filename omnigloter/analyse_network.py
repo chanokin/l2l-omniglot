@@ -5,9 +5,216 @@ from collections import OrderedDict
 
 ZERO_FLOAT = 1.0e-9
 
+
+def target_frequency_error(target, spikes, power=1):
+    err = [np.clip(len(times) - target, 0, np.inf)**power for times in spikes]
+    return np.sum(err)
+
+def mean_target_frequency_error(target, spikes, power=1):
+    return target_frequency_error(target, spikes, power) / float(len(spikes))
+    
+
+
+def mean_per_sample_class_distance(_activity_per_sample, labels, n_out):
+    return np.mean(
+        per_sample_class_distance(_activity_per_sample, labels, n_out))
+
+def per_sample_class_distance(_activity_per_sample, labels, n_out):
+    class_samples = {}
+    max_active = 0
+    for idx, lbl in enumerate(labels):
+        lbl_list = class_samples.get(lbl, [])
+        lbl_list.append( _activity_per_sample[idx])
+        class_samples[lbl] = lbl_list
+        
+        if len(_activity_per_sample[idx]) > max_active:
+            max_active = len(_activity_per_sample[idx])
+
+    if max_active == 0:
+        return 0
+    
+    v0 = np.zeros(n_out)
+    v1 = np.zeros(n_out)
+    dists = []
+    classes = sorted(class_samples.keys())
+    for idx0, cls0 in enumerate(classes[:-1]):
+        for cls1 in classes[idx0+1:]:
+            for samp0 in class_samples[cls0]:
+                v0[:] = 0
+                if len(samp0):
+                    v0[samp0] = 1
+                    
+                for samp1 in class_samples[cls1]:
+                    v1[:] = 0
+                    if len(samp1):
+                        v1[samp1] = 1
+                    
+                    if len(samp0) > 0 and len(samp1) > 0:
+                        dists.append( np.sum(np.abs(v0 - v1)) )
+                    else:
+                        dists.append( 0 )
+
+    return dists
+
+
+def error_sample_target_activity(target, _activity_per_sample, power=1.0, div=1.0):
+    act = np.asarray([len(ids) for ids in _activity_per_sample])
+    return np.sum(np.abs( (act - target) * (1.0/div) )**power)
+
+
+def mean_error_sample_target_activity(target, _activity_per_sample, power=1.0, div=1.0):
+    err = error_sample_target_activity(target, _activity_per_sample, power, div)
+    return err / float(len(_activity_per_sample))
+
+
 def vectors_above_threshold(vectors, threshold):
     vs = [np.sum(v) for v in vectors]
     return [i for i, s in enumerate(vs) if s >= threshold]
+
+def get_test_label_idx(data):
+    n_class = data['params']['sim']['num_classes']
+    n_train_per_class = data['params']['sim']['samples_per_class']
+    n_epochs = data['params']['sim']['num_epochs']
+    return n_class * n_train_per_class * n_epochs
+
+def get_test_start_t(data):
+    dt = data['params']['sim']['sample_dt']
+    n_train = get_test_label_idx(data)
+    return n_train * dt
+
+def get_test_spikes_and_labels(data):
+    spk = data['recs']['output'][0]['spikes']
+    lbl = data['input']['labels']
+    dt = data['params']['sim']['sample_dt']
+    start_t = get_test_start_t(data)
+    start_idx = get_test_label_idx(data)
+    print(start_t, dt, start_idx * dt)
+    out_spk = []
+    out_ids = lbl[start_idx:]
+    for times in spk:
+        ts = np.asarray(times)
+        whr = np.where(ts >= start_t)
+        out_spk.append(ts[whr])
+    
+    return out_spk, out_ids
+
+
+def get_labels_per_neuron(labels, spikes, start_t, dt):
+    lbls_per_nrn = {k: [] for k in range(len(spikes))}
+
+    for nid, times in enumerate(spikes):
+        if np.isscalar(times):
+            times = [times]
+            print(times)
+
+        if len(times) == 0:
+            continue
+        ts = np.asarray(times).astype('int')
+        ts -= int(start_t)
+        ts //= int(dt)
+        ids = ts[np.where(ts < len(labels))]
+        for lbl in [labels[i] for i in ids]:
+            lbls_per_nrn[nid].append(lbl)
+
+    return lbls_per_nrn
+
+def get_neurons_per_label(labels, spikes, start_t, dt):
+    unique = np.unique(labels)
+    nrns_per_lbl = {k: [] for k in unique}
+    for nid, times in enumerate(spikes):
+        ts = np.asarray(times).astype('int')
+        ts -= int(start_t)
+        ts //= int(dt)
+        ids = ts[np.where(ts < len(labels))]
+        for lbl in [labels[i] for i in ids]:
+            nrns_per_lbl[lbl].append(nid)
+
+    return nrns_per_lbl
+
+
+def activity_per_sample(labels, spikes, start_t, dt):
+    end_t = start_t + len(labels) * dt
+    aps = [[] for _ in labels]
+    for st in np.arange(start_t, end_t, dt):
+        et = st + dt
+        idx = int((st - start_t) // dt)
+        for nid, times in enumerate(spikes):
+            ts = np.asarray(times)
+            whr = np.where(np.logical_and(st <= ts, ts < et))[0]
+            if len(whr):
+                aps[idx].append(nid)
+    return aps
+
+
+def get_num_inactive(labels, spikes, start_t, dt):
+    aps = activity_per_sample(labels, spikes, start_t, dt)
+    n_aps = [len(v) for v in aps]
+    return np.sum([1 for s in n_aps if s == 0])
+
+
+def get_vectors(neurons_per_label):
+    vectors = {}
+    for k in neurons_per_label:
+        v = np.zeros(len(out_spikes))
+        v[neurons_per_label[k]] = 1.
+        vectors[k] = v
+    
+    return vectors
+
+
+def get_distances(neurons_per_label):
+    n_labels = len(neurons_per_label)
+    vectors = get_vectors(neurons_per_label)
+    dists = np.zeros((n_labels, n_labels))
+    labels = sorted(neurons_per_label.keys())
+    for k0 in labels[:-1]:
+        for k1 in labels[k0+1:]:
+            if np.sum(vectors[k0]) < 1 or \
+                np.sum(vectors[k1]) < 1:
+                s = 0.
+            else:
+                diff = np.abs(vectors[k0] - vectors[k1])
+                s = np.sum(diff)
+                
+            dists[k0, k1] = s
+            dists[k1, k0] = dists[k0, k1]
+
+    return dists
+
+def mean_neurons_sharing_class(labels, spikes, start_t, dt):
+    labels_per_neuron = get_labels_per_neuron(
+                            labels, spikes, start_t, dt)
+    n_labels_per_neuron = [len(np.unique(labels_per_neuron[k]))
+                                for k in labels_per_neuron]
+    hi_n_labels_per_neuron = [n - 1 for n in n_labels_per_neuron if n > 0]
+    if len(hi_n_labels_per_neuron) == 0:
+        return 0
+
+    return np.mean(hi_n_labels_per_neuron)    
+
+
+def num_neurons_sharing_class(labels, spikes, start_t, dt):
+    labels_per_neuron = get_labels_per_neuron(
+                            labels, spikes, start_t, dt)
+    n_labels_per_neuron = [len(np.unique(labels_per_neuron[k])) 
+                                for k in labels_per_neuron]
+    hi_n_labels_per_neuron = [n for n in n_labels_per_neuron if n > 1]
+    
+    return len(hi_n_labels_per_neuron)
+
+def empty(st, dt, spikes):
+    for ts in spikes:
+        ts = np.asarray(ts)
+        whr = np.where(np.logical_and(st <= ts, ts < st + dt))[0]
+        if len(whr):
+            return False
+    return True
+
+
+def get_num_spikes(spikes):
+    return np.sum([len(ts) for ts in spikes])
+
+
 
 def per_neuron_rate(spikes, start_t):
     return [len(np.where(np.asarray(times) >= start_t)[0])
@@ -137,6 +344,16 @@ def diff_class_dists(diff_class_vectors):
         if ii[0] is not None or ii[1] is not None:
             eucs[out_id] = 0.
     return eucs
+
+def diff_unique_dists(dists):
+    unique_d = []
+    for i in range(dists.shape[0])[:-1]:
+        for j in range(i+1, dists.shape[0]):
+            unique_d.append(dists[i, j])
+    return unique_d
+
+def sum_unique_dists(dists):
+    return np.sum(diff_unique_dists(dists))
 
 def any_all_zero(apc, ipc):
     any_zero = False

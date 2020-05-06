@@ -1,10 +1,12 @@
 from copy import deepcopy
 from pyNN.standardmodels import synapses, StandardModelType, build_translations
 from pynn_genn.simulator import state
+import numpy as np
 import logging
 from pygenn.genn_wrapper.WeightUpdateModels import StaticPulse
 from pynn_genn.model import GeNNStandardSynapseType, GeNNDefinitions
 from pynn_genn.standardmodels.synapses import WeightDependence, delayMsToSteps, delayStepsToMs, DDTemplate
+
 
 class MySTDPMechanism(synapses.STDPMechanism, GeNNStandardSynapseType):
     __doc__ = synapses.STDPMechanism.__doc__
@@ -17,22 +19,22 @@ class MySTDPMechanism(synapses.STDPMechanism, GeNNStandardSynapseType):
         ("dendritic_delay_fraction", "_dendritic_delay_fraction"))
 
     base_defs = {
-        "vars" : {"g": "scalar"},
+        "vars": {"g": "scalar"},
         "pre_var_name_types": [],
         "post_var_name_types": [],
 
-        "sim_code" : DDTemplate("""
+        "sim_code": DDTemplate("""
             $(addToInSyn, $(g));
             scalar dt = $(t) - $(sT_post);
             $${TD_CODE}
         """),
-        "learn_post_code" : DDTemplate("""
+        "learn_post_code": DDTemplate("""
             scalar dt = $(t) - $(sT_pre);
             $${TD_CODE}
         """),
 
-        "is_pre_spike_time_required" : True,
-        "is_post_spike_time_required" : True,
+        "is_pre_spike_time_required": True,
+        "is_post_spike_time_required": True,
     }
 
     def _get_minimum_delay(self):
@@ -42,8 +44,8 @@ class MySTDPMechanism(synapses.STDPMechanism, GeNNStandardSynapseType):
             return state._min_delay
 
     def __init__(self, timing_dependence=None, weight_dependence=None,
-            voltage_dependence=None, dendritic_delay_fraction=1.0,
-            weight=0.0, delay=None):
+                 voltage_dependence=None, dendritic_delay_fraction=1.0,
+                 weight=0.0, delay=None):
         super(MySTDPMechanism, self).__init__(
             timing_dependence, weight_dependence, voltage_dependence,
             dendritic_delay_fraction, weight, delay)
@@ -67,13 +69,13 @@ class MySTDPMechanism(synapses.STDPMechanism, GeNNStandardSynapseType):
         # Apply substitutions to sim code
         td_sim_code = self.timing_dependence.sim_code.substitute(
             WD_CODE=self.weight_dependence.depression_update_code)
-        self.wum_defs["sim_code"] =\
+        self.wum_defs["sim_code"] = \
             self.wum_defs["sim_code"].substitute(TD_CODE=td_sim_code)
 
         # Apply substitutions to post learn code
         td_post_learn_code = self.timing_dependence.learn_post_code.substitute(
             WD_CODE=self.weight_dependence.potentiation_update_code)
-        self.wum_defs["learn_post_code"] =\
+        self.wum_defs["learn_post_code"] = \
             self.wum_defs["learn_post_code"].substitute(TD_CODE=td_post_learn_code)
 
         # Use pre and postsynaptic spike code from timing dependence
@@ -92,6 +94,7 @@ class MyWeightDependence(synapses.MultiplicativeWeightDependence, WeightDependen
     potentiation_update_code = "$(g) += ($(Wmax) - $(g)) * update;\n"
 
     translations = build_translations(*WeightDependence.wd_translations)
+
 
 # class MyWeightDependence(synapses.AdditiveWeightDependence, WeightDependence):
 #     __doc__ = synapses.AdditiveWeightDependence.__doc__
@@ -119,7 +122,7 @@ class MyTemporalDependence(synapses.STDPTimingDependence):
         "Aminus": "scalar",
         "tau_plus": "scalar",
         "tau_minus": "scalar",
-        # "": "scalar",
+        "max_t": "scalar",
         # "": "scalar",
     }
 
@@ -129,32 +132,40 @@ class MyTemporalDependence(synapses.STDPTimingDependence):
     # using {.brc} for left{ or right} so that .format() does not freak out
     sim_code = DDTemplate("""
         // std::cout << "pre(" << dt << ")" << std::endl;
-        if (dt >= 0){
-            scalar update = 0.0;
-            if (dt <= $(tau_plus)){
-                update = $(Aplus);                
+        // std::cout << "t [" << $(t) << "]" << std::endl;
+        if( $(max_t) < 0.0 || $(t) <= $(max_t) ){
+            // std::cout << "t [" << $(t) << "] <= max_t [" << $(max_t) << "]" << std::endl;
+            if (dt >= 0){
+                scalar update = 0.0;
+                if (dt <= $(tau_plus)){
+                    update = $(Aplus);                
+                }
+                else if ( dt <= $(tau_minus) ){
+                    update = -$(Aminus);
+                }
+                
+                $${WD_CODE}
             }
-            else if ( dt <= $(tau_minus) ){
-                update = -$(Aminus);
-            }
-            
-            $${WD_CODE}
         }
         """)
 
     learn_post_code = DDTemplate("""
         // std::cout << "post(" << dt << ")" << std::endl;
-        if (dt >= 0){
-            scalar update = 0.0;
-            if (dt <= $(tau_plus)){
-                update = $(Aplus);
-                
+        // std::cout << "t [" << $(t) << "]" << std::endl;
+        if( $(max_t) < 0.0 || $(t) <= $(max_t) ){
+            // std::cout << "t [" << $(t) << "] <= max_t [" << $(max_t) << "]" << std::endl;
+            if (dt >= 0){
+                scalar update = 0.0;
+                if (dt <= $(tau_plus)){
+                    update = $(Aplus);
+                    
+                }
+                else if ( dt <= $(tau_minus) ){
+                    update = -$(Aminus);
+                }
+    
+                $${WD_CODE}
             }
-            else if ( dt <= $(tau_minus) ){
-                update = -$(Aminus);
-            }
-
-            $${WD_CODE}
         }
         """)
 
@@ -168,25 +179,28 @@ class MyTemporalDependence(synapses.STDPTimingDependence):
         $(postTrace) = $(postTrace) * exp(-dt) + 1.0;
         """
     translations = build_translations(
-        ("A_plus",     "Aplus"),
-        ("A_minus",    "Aminus"),
-        ("tau_plus",   "tau_plus"),
-        ("tau_minus",  "tau_minus"),
+        ("A_plus", "Aplus"),
+        ("A_minus", "Aminus"),
+        ("tau_plus", "tau_plus"),
+        ("tau_minus", "tau_minus"),
+        ("max_learn_t", "max_t"),
     )
 
     default_parameters = {
-        'tau_plus':       1.0,
-        'tau_minus':     20.0,
-        'A_plus':    0.01,
-        'A_minus':   0.0,
+        'tau_plus': 1.0,
+        'tau_minus': 20.0,
+        'A_plus': 0.01,
+        'A_minus': 0.0,
+        'max_learn_t': -1.0,
     }
 
-    def __init__(self, A_plus=0.01, A_minus=0.01, tau_plus=1.0, tau_minus=20.0):
+    def __init__(self, A_plus=0.01, A_minus=0.01, tau_plus=1.0, tau_minus=20.0, max_learn_t=-1.0):
         """
         Create a new specification for the timing-dependence of an STDP rule.
         """
         parameters = dict(locals())
         parameters.pop('self')
+        if np.isinf(max_learn_t):
+            parameters['max_learn_t'] = -1.0
+
         synapses.STDPTimingDependence.__init__(self, **parameters)
-
-

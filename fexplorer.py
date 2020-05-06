@@ -1,30 +1,27 @@
-import numpy as np
+import logging.config
 import os
 import sys
-import logging.config
+
+sys.path.append('.')
+sys.path.append("./omnigloter")
+import numpy as np
 from l2l.utils.environment import Environment
-from l2l.optimizers.gradientdescent.optimizer import \
-    GradientDescentOptimizer, RMSPropParameters
+from l2l.optimizers.gradientdescent.optimizer import GradientDescentOptimizer, RMSPropParameters
 from l2l.optimizers.evolutionstrategies.optimizer import \
     EvolutionStrategiesOptimizer, EvolutionStrategiesParameters
 from l2l.paths import Paths
 from l2l.logging_tools import create_shared_logger_data, configure_loggers
 from l2l.utils import JUBE_runner
 from l2l import dict_to_list
-
-sys.path.append('.')
-sys.path.append("./omnigloter")
-
 from omnigloter.optimizee import OmniglotOptimizee
 from omnigloter import config
-from omnigloter.evolution_optimizer import \
-    GeneticAlgorithmOptimizer, GeneticAlgorithmParameters
-from omnigloter.utils import load_last_trajs
+from omnigloter.evolution_optimizer import GeneticAlgorithmOptimizer, GeneticAlgorithmParameters
+from omnigloter.utils import load_last_trajs, trajectories_to_individuals
 
 logger = logging.getLogger("bin.l2l-omniglot")
 GRADDESC, EVOSTRAT, GENALG = range(3)
-# OPTIMIZER = EVOSTRAT
-# OPTIMIZER = GRADDESC
+#OPTIMIZER = EVOSTRAT
+#OPTIMIZER = GRADDESC
 OPTIMIZER = GENALG
 ON_JEWELS = bool(0)
 ON_TITAN = bool(0)
@@ -189,6 +186,7 @@ def main():
     traj.f_add_parameter_to_group("simulation",
                                   'noisy_spikes_path', paths.root_dir_path)
 
+    # db_path = '/home/gp283/brainscales-recognition/codebase/images_to_spikes/omniglot/spikes'
     db_path = os.path.abspath('../omniglot_output_%d' % config.INPUT_SHAPE[0])
     traj.f_add_parameter_to_group("simulation", 'spikes_path', db_path)
 
@@ -211,9 +209,8 @@ def main():
     # dbs = ['Futurama']
     # dbs = ['Latin']
     # dbs = ['Braille']
-    # dbs = ['Blackfoot_-Canadian_Aboriginal_Syllabics-',
-    #        'Gujarati', 'Syriac_-Estrangelo-']
-    # dbs = ['Futurama', 'Braille']
+    # dbs = ['Blackfoot_-Canadian_Aboriginal_Syllabics-', 'Gujarati', 'Syriac_-Estrangelo-']
+    dbs = [ 'Futurama', 'Braille']
     # dbs = ['Cyrillic', 'Futurama', 'Braille']
     if config.DEBUG:
         dbs = ['Braille']
@@ -297,7 +294,7 @@ def main():
             popsize=population_size,
             CXPB=0.5,  # probability of mating 2 individuals
             # note: moved from 0.8 to 0.6 mutpb to see if it removes bouncing
-            MUTPB=0.6,  # probability of individual to mutate
+            MUTPB=0.7,  # probability of individual to mutate
             NGEN=num_generations,
             indpb=0.1,  # probability of "gene" to mutate
             # number of best individuals to mate
