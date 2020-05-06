@@ -197,8 +197,9 @@ class OmniglotOptimizee(Optimizee):
         # start_t = end_t - n_class * n_test * dt
         start_t = analysis.get_test_start_t(data) 
         avg_class_sample_distance = 0
-        avg_activity_error = config.TARGET_ACTIVITY_PER_SAMPLE
-        avg_sharing_class_error = n_class**2
+        avg_activity_error = (config.OUTPUT_SIZE - config.TARGET_ACTIVITY_PER_SAMPLE) ** 3
+        avg_sharing_class_error = n_class ** 3
+        avg_freq_error = (n_test * n_class - config.TARGET_FREQUENCY_PER_OUTPUT_NEURON) ** 3
         act_per_samp = []
         if not data['died']:
             ### Analyze results
@@ -265,12 +266,13 @@ class OmniglotOptimizee(Optimizee):
         
             
             avg_activity_error = analysis.mean_error_sample_target_activity(
-                config.TARGET_ACTIVITY_PER_SAMPLE, act_per_samp, power=2.0, div=2.0)
+                config.TARGET_ACTIVITY_PER_SAMPLE, act_per_samp, power=2)
 
             avg_sharing_class_error = analysis.mean_neurons_sharing_class(
-                _labels, _spikes, start_t, dt) # ** 2
+                _labels, _spikes, start_t, dt) ** 2
 
-            
+            avg_freq_error = analysis.mean_target_frequency_error(
+                config.TARGET_FREQUENCY_PER_OUTPUT_NEURON, _spikes, power=2) 
 
         data['analysis'] = {
             'aggregate_per_class': {
@@ -286,6 +288,7 @@ class OmniglotOptimizee(Optimizee):
                 'n_spikes': n_spikes,
                 'sum_dists': sum_dists,
                 'avg_sharing_class_error': avg_sharing_class_error,
+                'avg_freq_error': avg_freq_error,
                 'weights': {
                     #overlapping activity is present
                     'overlap_dist': config.OVERLAP_WEIGHT,
@@ -333,7 +336,7 @@ class OmniglotOptimizee(Optimizee):
         fit01 = sum_dists / (n_empty + n_sharing + n_spikes)
         data['fitness1'] = fit01
 
-        fit0 = avg_class_sample_distance - avg_activity_error - avg_sharing_class_error
+        fit0 = avg_class_sample_distance - avg_activity_error - avg_sharing_class_error - avg_freq_error
         data['fitness'] = fit0
  
         ### Save results for this individual

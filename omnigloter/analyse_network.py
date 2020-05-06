@@ -7,7 +7,7 @@ ZERO_FLOAT = 1.0e-9
 
 
 def target_frequency_error(target, spikes, power=1):
-    err = [np.abs(len(times) - target)**power for times in spikes]
+    err = [np.clip(len(times) - target, 0, np.inf)**power for times in spikes]
     return np.sum(err)
 
 def mean_target_frequency_error(target, spikes, power=1):
@@ -186,7 +186,7 @@ def mean_neurons_sharing_class(labels, spikes, start_t, dt):
                             labels, spikes, start_t, dt)
     n_labels_per_neuron = [len(np.unique(labels_per_neuron[k]))
                                 for k in labels_per_neuron]
-    hi_n_labels_per_neuron = [n for n in n_labels_per_neuron if n > 1]
+    hi_n_labels_per_neuron = [n - 1 for n in n_labels_per_neuron if n > 0]
     if len(hi_n_labels_per_neuron) == 0:
         return 0
 
