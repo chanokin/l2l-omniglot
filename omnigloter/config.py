@@ -254,8 +254,8 @@ BASE_PARAMS = {
     'tau_syn_I': 5., # ms
 }
 
-tau_thresh = 30.0
-# tau_thresh = 50.0
+# tau_thresh = 30.0
+tau_thresh = 50.0
 mult_thresh = 1.8
 # mult_thresh = 0.00000000001
 
@@ -320,6 +320,7 @@ TIME_DEP_VARS = {
     "A_minus": 0.01,
     "tau_plus": 3.0,
     "tau_minus": 80.0,
+    "max_learn_t": N_CLASSES * N_SAMPLES * SAMPLE_DT * N_EPOCHS + 1.0,
 }
 
 WEIGHT_DEP = 'MyWeightDependence'

@@ -167,7 +167,7 @@ plt.savefig(os.path.join(base_dir, fname))
 #####################################################################
 
 print("len(all_scores) = {}".format(len(all_scores)))
-scores = np.asarray(all_scores)
+scores = np.clip(np.asarray(all_scores), -196., np.inf)
 argsort = np.argsort(scores)
 
 n_params = len(pkeys)
