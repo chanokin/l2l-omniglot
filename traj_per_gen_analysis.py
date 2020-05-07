@@ -92,6 +92,7 @@ for g in gkeys:
 #####################################################################
 #####################################################################
 #####################################################################
+print('plotting max fitness per generation')
 
 fw = 8
 fig = plt.figure(figsize=(fw*np.sqrt(2), fw))
@@ -121,7 +122,7 @@ plt.savefig(os.path.join(base_dir, fname))
 #####################################################################
 #####################################################################
 
-
+print('plotting max fitness per generation')
 fw = 8
 fig = plt.figure(figsize=(fw*np.sqrt(2), fw))
 ax = plt.subplot(1, 1, 1)
@@ -142,6 +143,7 @@ plt.savefig(os.path.join(base_dir, fname))
 #####################################################################
 #####################################################################
 
+print('plotting histograms')
 kmin = int(np.min( list(fitnesses.keys()) ))
 n_ind = len(fitnesses[kmin])
 epochs = len(fitnesses)
@@ -165,7 +167,7 @@ plt.savefig(os.path.join(base_dir, fname))
 #####################################################################
 #####################################################################
 #####################################################################
-
+print('plotting parameter pairs')
 print("len(all_scores) = {}".format(len(all_scores)))
 scores = np.clip(np.asarray(all_scores), -196., np.inf)
 argsort = np.argsort(scores)

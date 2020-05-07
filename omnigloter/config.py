@@ -49,7 +49,7 @@ if ONE_TO_ONE_EXCEPTION:
     EXPANSION_RANGE = (1., 1.0000000000000000000001)
 else:
     # EXPANSION_RANGE = (10., 10.0001) if DEBUG else (0.25, 11.0)
-    EXPANSION_RANGE = (20., 21.0) if DEBUG else (0.25, 21.0)
+    EXPANSION_RANGE = (20., 21.0) if DEBUG else (0.25, 25.0)
 
 EXP_PROB_RANGE = (0.5, 0.75000001) if DEBUG else (0.1, 0.5)
 OUTPUT_PROB_RANGE = (0.5, 0.750000001) if DEBUG else (0.1, 1.0)
@@ -150,7 +150,7 @@ SAME_CLASS_DISTANCE_WEIGHT = 0.
 INHIBITORY_WEIGHT = {
     'gabor': -5.0,
     'mushroom': -10.0,
-    'output': -5.0,
+    'output': -10.0,
 }
 
 EXCITATORY_WEIGHT = {
