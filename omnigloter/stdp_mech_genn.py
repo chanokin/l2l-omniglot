@@ -129,6 +129,7 @@ class MyTemporalDependence(synapses.STDPTimingDependence):
     pre_var_name_types = [("preTrace", "scalar")]
     post_var_name_types = [("postTrace", "scalar")]
 
+    # post then pre
     # using {.brc} for left{ or right} so that .format() does not freak out
     sim_code = DDTemplate("""
         // std::cout << "pre(" << dt << ")" << std::endl;
@@ -137,10 +138,11 @@ class MyTemporalDependence(synapses.STDPTimingDependence):
             // std::cout << "t [" << $(t) << "] <= max_t [" << $(max_t) << "]" << std::endl;
             if (dt >= 0){
                 scalar update = 0.0;
-                if (dt <= $(tau_plus)){
+                /* if (dt <= $(tau_plus)){
                     update = $(Aplus);                
                 }
-                else if ( dt <= $(tau_minus) ){
+                else */
+                if ( dt <= $(tau_minus) ){
                     update = -$(Aminus);
                 }
                 
@@ -149,6 +151,7 @@ class MyTemporalDependence(synapses.STDPTimingDependence):
         }
         """)
 
+    # pre then post
     learn_post_code = DDTemplate("""
         // std::cout << "post(" << dt << ")" << std::endl;
         // std::cout << "t [" << $(t) << "]" << std::endl;

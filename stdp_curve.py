@@ -1,6 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
+sys.path.append('.')
+sys.path.append("./omnigloter")
+
 import argparse
 from pprint import pprint
 
@@ -30,7 +33,7 @@ base_params = {
 
 }
 
-timestep = 0.1
+timestep = 1.0
 max_w = 0.1
 start_w = max_w / 2.0
 
@@ -39,7 +42,7 @@ time_dep_vars = {
     "A_plus": 0.10,
     "A_minus": 0.01,
     "tau_plus": 10.0,
-    "max_learn_t": 200.0,
+    # "max_learn_t": 200.0,
     "tau_minus": 80.0,
 }
 
