@@ -121,6 +121,7 @@ class MyTemporalDependence(synapses.STDPTimingDependence):
         "Aplus": "scalar",
         "Aminus": "scalar",
         "tau_plus": "scalar",
+        "tau_plus1": "scalar",
         "tau_minus": "scalar",
         "max_t": "scalar",
         # "": "scalar",
@@ -129,19 +130,19 @@ class MyTemporalDependence(synapses.STDPTimingDependence):
     pre_var_name_types = [("preTrace", "scalar")]
     post_var_name_types = [("postTrace", "scalar")]
 
-    # post then pre
+    # post then pre (dt = pre - post)
     # using {.brc} for left{ or right} so that .format() does not freak out
     sim_code = DDTemplate("""
         // std::cout << "pre(" << dt << ")" << std::endl;
         // std::cout << "t [" << $(t) << "]" << std::endl;
         if( $(max_t) < 0.0 || $(t) <= $(max_t) ){
             // std::cout << "t [" << $(t) << "] <= max_t [" << $(max_t) << "]" << std::endl;
-            if (dt >= 0){
+            if (dt > 0){
                 scalar update = 0.0;
-                /* if (dt <= $(tau_plus)){
+                if (dt <= $(tau_plus1)){
                     update = $(Aplus);                
                 }
-                else */
+                else
                 if ( dt <= $(tau_minus) ){
                     update = -$(Aminus);
                 }
@@ -151,13 +152,13 @@ class MyTemporalDependence(synapses.STDPTimingDependence):
         }
         """)
 
-    # pre then post
+    # pre then post (dt = post - pre)
     learn_post_code = DDTemplate("""
         // std::cout << "post(" << dt << ")" << std::endl;
         // std::cout << "t [" << $(t) << "]" << std::endl;
         if( $(max_t) < 0.0 || $(t) <= $(max_t) ){
             // std::cout << "t [" << $(t) << "] <= max_t [" << $(max_t) << "]" << std::endl;
-            if (dt >= 0){
+            if (dt > 0){
                 scalar update = 0.0;
                 if (dt <= $(tau_plus)){
                     update = $(Aplus);
@@ -185,19 +186,21 @@ class MyTemporalDependence(synapses.STDPTimingDependence):
         ("A_plus", "Aplus"),
         ("A_minus", "Aminus"),
         ("tau_plus", "tau_plus"),
+        ("tau_plus1", "tau_plus1"),
         ("tau_minus", "tau_minus"),
         ("max_learn_t", "max_t"),
     )
 
     default_parameters = {
         'tau_plus': 1.0,
+        'tau_plus1': -1.0,
         'tau_minus': 20.0,
         'A_plus': 0.01,
         'A_minus': 0.0,
         'max_learn_t': -1.0,
     }
 
-    def __init__(self, A_plus=0.01, A_minus=0.01, tau_plus=1.0, tau_minus=20.0, max_learn_t=-1.0):
+    def __init__(self, A_plus=0.01, A_minus=0.01, tau_plus=1.0, tau_plus1=-1.0, tau_minus=20.0, max_learn_t=-1.0):
         """
         Create a new specification for the timing-dependence of an STDP rule.
         """

@@ -42,6 +42,7 @@ time_dep_vars = {
     "A_plus": 0.10,
     "A_minus": 0.01,
     "tau_plus": 10.0,
+    "tau_plus1": 10.0,
     # "max_learn_t": 200.0,
     "tau_minus": 80.0,
 }
@@ -64,10 +65,12 @@ pprojs = {}
 for delay in delays:
 
     projs = {}
-    for dt in range(start_dt, start_dt+num_dt, 1):
-        pre_spike_times = [[trigger_t + dt]]
-        trigger_spike_times = [[trigger_t]]
-
+    for dt in range(start_dt, start_dt+num_dt, 1): # dt <- (-max_dt, max_dt)
+        pre_spike_times = [[trigger_t + dt]] # pre = (post + dt)
+        trigger_spike_times = [[trigger_t]] # post spike time
+        # print(trigger_t, pre_spike_times[0][0], dt)
+        # print("post - pre ", trigger_t - pre_spike_times[0][0])
+        # makes post population spike
         trigger = sim.Population(1,
                     sim.SpikeSourceArray(**{'spike_times': trigger_spike_times}))
 
@@ -79,7 +82,7 @@ for delay in delays:
 
         tr2post = sim.Projection(trigger, post,
                     sim.OneToOneConnector(),
-                    synapse_type=sim.StaticSynapse(weight=2.0, delay=0.1),
+                    synapse_type=sim.StaticSynapse(weight=2.0),
                     receptor_type='excitatory', label='trigger connection')
 
 
