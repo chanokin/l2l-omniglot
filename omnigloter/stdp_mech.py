@@ -10,4 +10,4 @@ if config.SIM_NAME == config.SPINNAKER:
     MySTDPMechanism = sim.STDPMechanism
 
 elif config.SIM_NAME == config.GENN:
-    from stdp_mech_genn import MySTDPMechanism, MyWeightDependence, MyTemporalDependence
+    from .stdp_mech_genn import MySTDPMechanism, MyWeightDependence, MyTemporalDependence

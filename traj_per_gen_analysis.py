@@ -98,11 +98,11 @@ fw = 8
 fig = plt.figure(figsize=(fw*np.sqrt(2), fw))
 ax = plt.subplot(1, 1, 1)
 
-for g in gkeys:
-    plt.plot(g * np.ones_like(fitnesses[g]), fitnesses[g], '.b', alpha=0.3)
-#    plt.plot(g * np.ones_like(fitnesses[g]), np.clip(fitnesses[g],0, np.inf), '.b', alpha=0.3)
+# for g in gkeys:
+#     plt.plot(g * np.ones_like(fitnesses[g]), fitnesses[g], '.b', alpha=0.3)
+#     plt.plot(g * np.ones_like(fitnesses[g]), np.clip(fitnesses[g],0, np.inf), '.b', alpha=0.3)
 
-plt.plot(gkeys, np.asarray(maximum), linestyle=':', label='max')
+# plt.plot(gkeys, np.asarray(maximum), linestyle=':', label='max')
 plt.plot(gkeys, np.asarray(average), linestyle='-', label='avg')
 # plt.plot(gkeys, np.asarray(minimum), 'v', linestyle='-.', label='min')
 

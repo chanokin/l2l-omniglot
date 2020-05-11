@@ -254,8 +254,8 @@ BASE_PARAMS = {
     'tau_syn_I': 5., # ms
 }
 
-# tau_thresh = 30.0
-tau_thresh = 50.0
+tau_thresh = 33.0
+# tau_thresh = 50.0
 mult_thresh = 1.8
 # mult_thresh = 0.00000000001
 
@@ -318,7 +318,7 @@ TIME_DEP = 'MyTemporalDependence'
 TIME_DEP_VARS = {
     "A_plus": 0.10,
     "A_minus": 0.01,
-    "tau_plus": 10.0,
+    "tau_plus": 5.0,
     "tau_minus": 80.0,
     "max_learn_t": N_CLASSES * N_SAMPLES * SAMPLE_DT * N_EPOCHS + 1.0,
 }
