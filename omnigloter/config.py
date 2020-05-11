@@ -318,7 +318,8 @@ TIME_DEP = 'MyTemporalDependence'
 TIME_DEP_VARS = {
     "A_plus": 0.10,
     "A_minus": 0.01,
-    "tau_plus": 5.0,
+    "tau_plus": 3.0,
+    "tau_plus1": 2.0,
     "tau_minus": 80.0,
     "max_learn_t": N_CLASSES * N_SAMPLES * SAMPLE_DT * N_EPOCHS + 1.0,
 }
