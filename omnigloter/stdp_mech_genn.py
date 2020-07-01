@@ -89,9 +89,15 @@ class MySTDPMechanism(synapses.STDPMechanism, GeNNStandardSynapseType):
 class MyWeightDependence(synapses.MultiplicativeWeightDependence, WeightDependence):
     __doc__ = synapses.MultiplicativeWeightDependence.__doc__
 
-    depression_update_code = "$(g) += ($(g) - $(Wmin)) * update;\n"
+    depression_update_code = """
+        if(update <= 0){
+            $(g) += ($(g) - $(Wmin)) * update;
+        }else{
+            $(g) += ($(Wmax) - $(g)) * update;
+        }    
+    """
 
-    potentiation_update_code = "$(g) += ($(Wmax) - $(g)) * update;\n"
+    potentiation_update_code = depression_update_code
 
     translations = build_translations(*WeightDependence.wd_translations)
 
