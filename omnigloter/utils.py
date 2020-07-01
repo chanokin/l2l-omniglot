@@ -3,6 +3,7 @@ import os
 import sys
 import glob
 import copy
+from . import config
 
 HEIGHT, WIDTH = range(2)
 ROWS, COLS = HEIGHT, WIDTH
@@ -193,9 +194,13 @@ def dist_conn_list(in_shapes, num_zones, out_size, radius, prob, weight, delay):
     print("\t\tradius {}".format(radius))
     print("\t\tprob {}".format(prob))
 
-    div = max(in_shapes[0][0]//in_shapes[2][0],
-              in_shapes[0][1]//in_shapes[2][1])
     n_in = len(in_shapes)
+    if n_in > 1:
+        div = max(in_shapes[0][0]//in_shapes[2][0],
+                  in_shapes[0][1]//in_shapes[2][1])
+    else:
+        div = 1.0
+
     conns = [[] for _ in range(n_in)]
     n_per_zone = int(out_size // num_zones['total'])
     zone_idx = 0
@@ -244,7 +249,9 @@ def dist_conn_list(in_shapes, num_zones, out_size, radius, prob, weight, delay):
                     pre_indices = rows[rand_r, rand_c] * width + cols[rand_r, rand_c]
                     for pre_i in pre_indices:
                         if pre_i < max_pre:
-                            conns[pre_pop].append((pre_i, post, weight, delay))
+                            w = np.clip(np.random.normal(weight, weight * 0.1), 0., np.inf)
+                            d = 1# np.round(np.random.uniform(delay, delay + 10.))
+                            conns[pre_pop].append((pre_i, post, w, d))
                         else:
                             print("pre is larger than max ({} >= {})".format(pre_i, max_pre))
                             print("pre_r, row_l, row_h = {} {} {}".format(pre_r, row_l, row_h))
@@ -285,9 +292,33 @@ def wta_mush_conn_list(in_shapes, num_zones, out_size, iweight, eweight, delay):
     sys.stdout.flush()
     return iconns, econns
 
+def wta_mush_conn_list_a2a(in_shapes, num_zones, out_size, iweight, delay):
+    iconns = []
+    n_per_zone = out_size // num_zones['total']
+    zone_idx = 0
+    for pre_pop in in_shapes:
+        nrows, ncols = int(num_zones[pre_pop][0]), int(num_zones[pre_pop][1])
+        for zr in range(nrows):
+            for zc in range(ncols):
+                start_post = int(zone_idx * n_per_zone)
+                end_post = int(start_post + n_per_zone)
+                for post in range(start_post, end_post):
+                    for ipost in range(start_post, end_post):
+                        iconns.append((post, ipost, iweight, delay))
 
+                zone_idx += 1
+                pc = (100.0 * (zone_idx) / num_zones['total'])
+                sys.stdout.write("\r\tWTA to Mushroom\t%6.2f%%" % pc)
+                sys.stdout.flush()
+
+    sys.stdout.write("\n")
+    sys.stdout.flush()
+    return iconns
+
+    
+    
 def output_connection_list(kenyon_size, decision_size, prob_active, active_weight,
-                           inactive_scaling, seed=None, max_pre=10000):
+                           inactive_scaling, seed=None, max_pre=config.MAX_PRE_OUTPUT):
     n_pre = min(max_pre, kenyon_size)
     n_conns = n_pre * decision_size
     print("output_connection_list: n_conns = {}".format(n_conns))
@@ -297,19 +328,23 @@ def output_connection_list(kenyon_size, decision_size, prob_active, active_weigh
         matrix[:, 1] = np.tile(np.arange(decision_size), n_pre)
     else:
         for i in range(0, n_conns, n_pre):
-            matrix[i:i + n_pre, 0] = np.random.randint(0, kenyon_size, n_pre)
+            matrix[i:i + n_pre, 0] = np.random.randint(0, kenyon_size, size=n_pre)
             matrix[i:i + n_pre, 1] = i // n_pre
 
     np.random.seed(seed)
 
     inactive_weight = active_weight * inactive_scaling
-    scale = max(inactive_weight * 0.2, 0.00001)
-    matrix[:, 2] = np.random.normal(loc=inactive_weight, scale=scale,
+    scale = max(active_weight * 0.05, 0.00001)
+    matrix[:, 2] = np.random.normal(loc=inactive_weight, 
+                                    scale=scale,
                                     size=n_conns)
 
     dice = np.random.uniform(0., 1., size=(n_conns))
     active = np.where(dice <= prob_active)
-    matrix[active, 2] = np.random.normal(loc=active_weight, scale=active_weight * 0.2,
+    print(prob_active, len(active[0]), n_conns)
+    matrix[active, 2] = np.random.normal(loc=active_weight, 
+                                         # scale=active_weight * 0.05,
+                                         scale=scale,
                                          size=active[0].shape)
 
     np.random.seed()

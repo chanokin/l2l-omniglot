@@ -201,7 +201,7 @@ for i in range(n_params):
 #                 s=scores + 5.0,
 #                 vmin=0.0, vmax=1.0,
                 cmap='jet',
-#                 alpha=0.7,
+                alpha=0.9,
                 linewidths=1,
                 edgecolors='black',
         )

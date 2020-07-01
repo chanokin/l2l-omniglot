@@ -6,6 +6,71 @@ from collections import OrderedDict
 ZERO_FLOAT = 1.0e-9
 
 
+def bin_spikes(spikes, dt, start_t, end_t):
+    bins = np.arange(start_t, end_t-dt, dt)
+    
+    bs = [[[] for _ in range(len(spikes))] 
+              for _ in np.arange(start_t, end_t, dt)]
+
+    for i, times in enumerate(spikes):
+        inds = np.digitize(times, bins)
+        for j in range(len(times)):
+            b = inds[j]
+            bs[b][i].append(times[j])
+    return bs
+
+
+def bin_to_dict(bin_spikes, labels):
+    un_lbl = np.unique(labels)
+    vs = {l: [] for l in un_lbl}
+    for i, s in enumerate(bin_spikes):
+        v = [1 if len(spk) else 0 for spk in s]
+        lbl = labels[i]
+        vs[lbl].append(v)
+    return vs
+
+def spikes_correlations(vec_dict):
+    vs = vec_dict
+    cls = sorted(vs.keys())
+    lens = [len(vs[c]) for c in cls]
+    n_samp = int(np.sum(lens))
+    over = np.ones((n_samp, n_samp)) * np.nan
+    acc_lens = []
+    for i0, c in enumerate(cls):
+        if i0 == 0:
+            acc_lens.append(0)
+        else:
+            acc_lens.append(lens[i0-1] + acc_lens[i0-1])
+
+    for i0, c0 in enumerate(cls):
+    #     print(i0)
+        for i1, c1 in enumerate(cls):
+            if i1 < i0:
+                continue
+    #         print(i0, i1)
+            for j0, v0 in enumerate(vs[c0]):
+                for j1, v1 in enumerate(vs[c1]):
+                    if j1 < j0:
+                        continue
+    #                 print(c0, c1, j0, j1, acc_lens[i0] + j0, acc_lens[i1] + j1)
+
+    #                         if c0 == c1 and j0 == j1:
+    #                             continue
+    #                         v = np.logical_and(v0, v1).sum()
+                    v0 = np.asarray(v0)
+                    v1 = np.asarray(v1)
+                    norm = np.sqrt((v0**2).sum() * (v1**2).sum())
+
+                    v = (v0 * v1).sum()/ norm if norm > 0 else np.nan
+    #                 print(v)
+
+                    over[acc_lens[i0] + j0, acc_lens[i1] + j1] = v
+                    over[acc_lens[i0] + j1, acc_lens[i1] + j0] = v
+                    over[acc_lens[i1] + j0, acc_lens[i0] + j1] = v
+                    over[acc_lens[i1] + j1, acc_lens[i0] + j0] = v
+    return over
+
+
 def target_frequency_error(target, spikes, power=1):
     err = [np.clip(len(times) - target, 0, np.inf)**power for times in spikes]
     return np.sum(err)
@@ -50,7 +115,8 @@ def per_sample_class_distance(_activity_per_sample, labels, n_out):
                         v1[samp1] = 1
                     
                     if len(samp0) > 0 and len(samp1) > 0:
-                        dists.append( np.sum(np.abs(v0 - v1)) )
+                        w = 1./(2.*max(len(samp0), len(samp1)))
+                        dists.append( np.sum(np.abs(v0 - v1)) * w )
                     else:
                         dists.append( 0 )
 

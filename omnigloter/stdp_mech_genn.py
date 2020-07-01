@@ -89,9 +89,16 @@ class MySTDPMechanism(synapses.STDPMechanism, GeNNStandardSynapseType):
 class MyWeightDependence(synapses.MultiplicativeWeightDependence, WeightDependence):
     __doc__ = synapses.MultiplicativeWeightDependence.__doc__
 
-    depression_update_code = "$(g) += ($(g) - $(Wmin)) * update;\n"
+    depression_update_code = """
+        if(update <= 0){
+            $(g) += ($(g) - $(Wmin)) * update;
+        }else{
+            $(g) += ($(Wmax) - $(g)) * update;
+        }
+        $(g) = fmin(fmax($(Wmin), $(g)), $(Wmax));
+    """
 
-    potentiation_update_code = "$(g) += ($(Wmax) - $(g)) * update;\n"
+    potentiation_update_code = depression_update_code
 
     translations = build_translations(*WeightDependence.wd_translations)
 
@@ -158,7 +165,7 @@ class MyTemporalDependence(synapses.STDPTimingDependence):
         // std::cout << "t [" << $(t) << "]" << std::endl;
         if( $(max_t) < 0.0 || $(t) <= $(max_t) ){
             // std::cout << "t [" << $(t) << "] <= max_t [" << $(max_t) << "]" << std::endl;
-            if (dt > 0){
+            if (dt >= 0){
                 scalar update = 0.0;
                 if (dt <= $(tau_plus)){
                     update = $(Aplus);

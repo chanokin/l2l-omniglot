@@ -31,7 +31,7 @@ INPUT_DIVS = (3, 5)
 # INPUT_DIVS = (2, 3)
 N_CLASSES = 14 if DEBUG else 14
 N_SAMPLES = 16 if DEBUG else 16
-N_EPOCHS = 10 if DEBUG else 50
+N_EPOCHS = 10 if DEBUG else 1
 N_TEST = 4 if DEBUG else 4
 TOTAL_SAMPLES = N_SAMPLES * N_EPOCHS + N_TEST
 DURATION = N_CLASSES * TOTAL_SAMPLES * SAMPLE_DT
@@ -49,35 +49,40 @@ if ONE_TO_ONE_EXCEPTION:
     EXPANSION_RANGE = (1., 1.0000000000000000000001)
 else:
     # EXPANSION_RANGE = (10., 10.0001) if DEBUG else (0.25, 11.0)
-    EXPANSION_RANGE = (20., 21.0) if DEBUG else (0.25, 25.0)
-
-EXP_PROB_RANGE = (0.5, 0.75000001) if DEBUG else (0.1, 0.5)
-OUTPUT_PROB_RANGE = (0.5, 0.750000001) if DEBUG else (0.1, 1.0)
-A_PLUS = (0.1, 5.0000000001) if DEBUG else (0.01, 5.0)
-A_MINUS = (0.1, 1.000000001) if DEBUG else (0.001, 5.0)
-STD_DEV = (3.0, 3.00000001) if DEBUG else (0.5, 5.0)
-DISPLACE = (0.0,)#01, 0.00100000001) if DEBUG else (0.0001, 0.1)
-MAX_DT = (80.0, 80.00000001) if DEBUG else (float(SAMPLE_DT), SAMPLE_DT*2.0)
-W_MIN_MULT = (0.0, 0.00000001) if DEBUG else (-10.0, 0.0)
-W_MAX_MULT = (1.2,)# 1.200000001) if DEBUG else (0.1, 2.0)
-CONN_DIST = (5, 15) if DEBUG else (3, 20)
+    EXPANSION_RANGE = (20., 21.0) if DEBUG else (50, )#(0.25, 20.0)
 
 
-GABOR_WEIGHT_RANGE = (2.0, 5.000001) if DEBUG else (1.0, 5.0)
-
-# OUT_WEIGHT_RANGE = (0.1, 0.100000001) if DEBUG else (1.0, 5.0)
-if ONE_TO_ONE_EXCEPTION:
-    OUT_WEIGHT_RANGE = (0.1, 0.1000000001)
-else:
-    OUT_WEIGHT_RANGE = (2.0, 5.000000001) if DEBUG else (0.001, 5.0)
-# OUT_WEIGHT_RANGE = (1.5, 1.500001) if DEBUG else (0.01, 0.5) ### 64x64
+EXP_PROB_RANGE = (0.5, 0.75000001) if DEBUG else (0.05, )#0.25)
 
 if ONE_TO_ONE_EXCEPTION:
     MUSHROOM_WEIGHT_RANGE = (5.0, 5.0000000001)
 else:
-    MUSHROOM_WEIGHT_RANGE = (1.0, 5.0000001) if DEBUG else (0.001, 5.0)
+    MUSHROOM_WEIGHT_RANGE = (1.0, 5.0000001) if DEBUG else (5., )#5.0)
 # MUSHROOM_WEIGHT_RANGE = (0.50, 0.500000001) if DEBUG else (0.05, 1.0)
 # MUSHROOM_WEIGHT_RANGE = (0.025, 0.02500001) if DEBUG else (0.05, 1.0) ### for (64,64)
+
+MAX_PRE_OUTPUT = 10000
+
+OUTPUT_PROB_RANGE = (0.5, 0.750000001) if DEBUG else (0.05, 0.5)
+# OUT_WEIGHT_RANGE = (0.1, 0.100000001) if DEBUG else (1.0, 5.0)
+if ONE_TO_ONE_EXCEPTION:
+    OUT_WEIGHT_RANGE = (0.1, 0.1000000001)
+else:
+    OUT_WEIGHT_RANGE = (2.0, 5.000000001) if DEBUG else (0.2, 5.0)
+# OUT_WEIGHT_RANGE = (1.5, 1.500001) if DEBUG else (0.01, 0.5) ### 64x64
+
+
+A_PLUS = (0.1, 5.0000000001) if DEBUG else (0.001, 5.0)
+A_MINUS = (0.1, 1.000000001) if DEBUG else (0.001, 5.0)
+STD_DEV = (3.0, 3.00000001) if DEBUG else (0.5, 5.0)
+DISPLACE = (0.0,)#01, 0.00100000001) if DEBUG else (0.0001, 0.1)
+MAX_DT = (80.0, 80.00000001) if DEBUG else (float(SAMPLE_DT), SAMPLE_DT*2.0)
+W_MIN_MULT = (0.0, 0.00000001) if DEBUG else (-1.0, 0.0)
+W_MAX_MULT = (1.2,)# 1.200000001) if DEBUG else (0.1, 2.0)
+CONN_DIST = (5, 15) if DEBUG else (5, )#(3, 20)
+
+
+GABOR_WEIGHT_RANGE = (2.0, 5.000001) if DEBUG else (1.0, 5.0)
 
 
 
@@ -237,7 +242,7 @@ ATTR_STEPS = {k: ATTR_STEPS_BASE[k] for k in ATTR_STEPS_BASE}
 ### Neuron types
 NEURON_CLASS = 'IF_curr_exp'
 GABOR_CLASS = 'IF_curr_exp'
-MUSHROOM_CLASS = 'IF_curr_exp_i'
+MUSHROOM_CLASS = 'IF_curr_exp_i' # i
 INH_MUSHROOM_CLASS = 'IF_curr_exp'
 OUTPUT_CLASS = 'IF_curr_exp_i'
 INH_OUTPUT_CLASS = 'IF_curr_exp'
@@ -254,8 +259,8 @@ BASE_PARAMS = {
     'tau_syn_I': 5., # ms
 }
 
-tau_thresh = 33.0
-# tau_thresh = 50.0
+tau_thresh = 30.0
+#tau_thresh = 50.0
 mult_thresh = 1.8
 # mult_thresh = 0.00000000001
 
@@ -265,7 +270,10 @@ MUSHROOM_PARAMS['v_threshold'] = VTHRESH  # mV
 # MUSHROOM_PARAMS['v_thresh_adapt'] = MUSHROOM_PARAMS['v_threshold']
 MUSHROOM_PARAMS['tau_threshold'] = tau_thresh
 MUSHROOM_PARAMS['w_threshold'] = mult_thresh
-MUSHROOM_PARAMS['tau_syn_I'] = 5.
+MUSHROOM_PARAMS['tau_syn_E'] = 5.
+MUSHROOM_PARAMS['tau_syn_I'] = 10.
+MUSHROOM_PARAMS['cm'] = 1.0
+MUSHROOM_PARAMS['tau_m'] = 20.0
 
 INH_MUSHROOM_PARAMS = BASE_PARAMS.copy()
 INH_OUTPUT_PARAMS = BASE_PARAMS.copy()
@@ -283,7 +291,7 @@ OUTPUT_PARAMS['tau_syn_I'] = 5.
 RECORD_SPIKES = [
     # 'input',
     # 'gabor',
-    # 'mushroom',
+    'mushroom',
     # 'inh_mushroom',
     'output',
     # 'inh_output',
@@ -293,8 +301,10 @@ RECORD_WEIGHTS = [
     # 'input to gabor',
     # 'gabor to mushroom',
     # 'input to mushroom',
-    # 'mushroom to output'
+    'mushroom to output'
 ]
+
+SAVE_INITIAL_WEIGHTS = bool(1)
 
 # STDP_MECH = 'STDPMechanism'
 #
@@ -318,8 +328,8 @@ TIME_DEP = 'MyTemporalDependence'
 TIME_DEP_VARS = {
     "A_plus": 0.10,
     "A_minus": 0.01,
-    "tau_plus": 3.0,
-    "tau_plus1": 2.0,
+    "tau_plus": 10.0,
+    # "tau_plus1": 2.0,
     "tau_minus": 80.0,
     "max_learn_t": N_CLASSES * N_SAMPLES * SAMPLE_DT * N_EPOCHS + 1.0,
 }

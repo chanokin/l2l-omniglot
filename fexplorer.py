@@ -28,6 +28,8 @@ ON_TITAN = bool(1)
 USE_MPI = bool(0)
 MULTIPROCESSING = (ON_JEWELS or USE_MPI or bool(1)) and (
                   not config.DEBUG)# or not ON_TITAN)
+MULTIPROCESSING = False
+
 NUM_SIMS = 1
 
 if config.DEBUG:
@@ -210,10 +212,11 @@ def main():
     # dbs = ['Latin']
     # dbs = ['Braille']
     # dbs = ['Blackfoot_-Canadian_Aboriginal_Syllabics-', 'Gujarati', 'Syriac_-Estrangelo-']
-    dbs = [ 'Futurama', 'Braille']
+    dbs = [ 'Futurama']#, 'Braille']
     # dbs = ['Cyrillic', 'Futurama', 'Braille']
     if config.DEBUG:
         dbs = ['Braille']
+    #dbs = ['Braille']
 
     traj.f_add_parameter_to_group("simulation", 'database', dbs)
 
@@ -271,13 +274,14 @@ def main():
             parameters=parameters,
             optimizee_bounding_func=optimizee.bounding_func)
     else:
-        num_generations = 1000
+        num_generations = 1#000
         if ON_JEWELS:
             nodes = 12
             gpus_per_node = 4
             population_size = gpus_per_node * nodes
         else:
-            population_size = 20
+            population_size = 18
+            population_size = 3
         # population_size = 5
         p_hof = 0.25 if population_size < 100 else 0.1
         p_bob = 0.2
