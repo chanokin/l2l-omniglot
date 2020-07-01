@@ -163,6 +163,8 @@ class OmniglotOptimizee(Optimizee):
 
         snn = Decoder(name, params)
         data = snn.run_pynn()
+        data['binned'] = {}
+        data['correlations'] = {}
 
         print("\n\nExperiment took {} seconds\n".format(time.time() - bench_start_t))
 
@@ -273,7 +275,26 @@ class OmniglotOptimizee(Optimizee):
 
             avg_freq_error = analysis.mean_target_frequency_error(
                 config.TARGET_FREQUENCY_PER_OUTPUT_NEURON, _spikes, power=2) 
+            
+            duration = data['params']['sim']['duration']
+            output_binned = analysis.bin_spikes(data['recs']['output'][0]['spikes'], dt, 0, duration)
+            data['binned']['output'] = output_binned
+            labels = data['input']['labels']
+            data['correlations']['output'] = analysis.spikes_correlations(
+                                                analysis.bin_to_dict(output_binned, labels))
 
+        if 'mushroom' in data['recs']:
+            start_t = analysis.get_test_start_t(data)
+            dt = data['params']['sim']['sample_dt']
+            duration = data['params']['sim']['duration']
+            mushroom_binned = analysis.bin_spikes(data['recs']['mushroom'][0]['spikes'], dt, 0, duration)
+            data['binned']['mushroom'] = mushroom_binned
+            labels = data['input']['labels']
+            data['correlations']['mushroom'] = analysis.spikes_correlations(
+                                                analysis.bin_to_dict(mushroom_binned, labels))
+            
+
+            
         data['analysis'] = {
             'aggregate_per_class': {
                 'spikes': apc,

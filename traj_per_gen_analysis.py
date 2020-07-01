@@ -92,16 +92,17 @@ for g in gkeys:
 #####################################################################
 #####################################################################
 #####################################################################
+print('plotting max fitness per generation')
 
 fw = 8
 fig = plt.figure(figsize=(fw*np.sqrt(2), fw))
 ax = plt.subplot(1, 1, 1)
 
-for g in gkeys:
-    plt.plot(g * np.ones_like(fitnesses[g]), fitnesses[g], '.b', alpha=0.3)
-#    plt.plot(g * np.ones_like(fitnesses[g]), np.clip(fitnesses[g],0, np.inf), '.b', alpha=0.3)
+# for g in gkeys:
+#     plt.plot(g * np.ones_like(fitnesses[g]), fitnesses[g], '.b', alpha=0.3)
+#     plt.plot(g * np.ones_like(fitnesses[g]), np.clip(fitnesses[g],0, np.inf), '.b', alpha=0.3)
 
-plt.plot(gkeys, np.asarray(maximum), linestyle=':', label='max')
+# plt.plot(gkeys, np.asarray(maximum), linestyle=':', label='max')
 plt.plot(gkeys, np.asarray(average), linestyle='-', label='avg')
 # plt.plot(gkeys, np.asarray(minimum), 'v', linestyle='-.', label='min')
 
@@ -121,7 +122,7 @@ plt.savefig(os.path.join(base_dir, fname))
 #####################################################################
 #####################################################################
 
-
+print('plotting max fitness per generation')
 fw = 8
 fig = plt.figure(figsize=(fw*np.sqrt(2), fw))
 ax = plt.subplot(1, 1, 1)
@@ -142,6 +143,7 @@ plt.savefig(os.path.join(base_dir, fname))
 #####################################################################
 #####################################################################
 
+print('plotting histograms')
 kmin = int(np.min( list(fitnesses.keys()) ))
 n_ind = len(fitnesses[kmin])
 epochs = len(fitnesses)
@@ -165,9 +167,9 @@ plt.savefig(os.path.join(base_dir, fname))
 #####################################################################
 #####################################################################
 #####################################################################
-
+print('plotting parameter pairs')
 print("len(all_scores) = {}".format(len(all_scores)))
-scores = np.asarray(all_scores)
+scores = np.clip(np.asarray(all_scores), -196., np.inf)
 argsort = np.argsort(scores)
 
 n_params = len(pkeys)
@@ -199,7 +201,7 @@ for i in range(n_params):
 #                 s=scores + 5.0,
 #                 vmin=0.0, vmax=1.0,
                 cmap='jet',
-#                 alpha=0.7,
+                alpha=0.9,
                 linewidths=1,
                 edgecolors='black',
         )

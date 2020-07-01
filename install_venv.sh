@@ -33,7 +33,7 @@ echo $VENV
 
 if [ $INSTALL_VENV -eq 1 ]
 then
-  python3 -m venv $VENV
+  python3 -m venv $VENV --system-site-packages
 fi
 
 
@@ -48,15 +48,15 @@ ln -s $BASE/omnigloter $VENV/lib/$PYVER/site-packages/
 
 source $VENV/bin/activate
 
-#pip install --upgrade pip
-#pip install Cython
-#pip install numpy
-#pip install scipy
-#pip install matplotlib
-#pip install setuptools
-#pip install scikit-learn
-#pip install skutil
-#pip install pyyaml
+pip install --upgrade pip
+pip install Cython
+pip install numpy
+pip install scipy
+pip install matplotlib
+pip install setuptools
+pip install scikit-learn
+pip install skutil
+pip install pyyaml
 
 git clone https://github.com/genn-team/genn $GENN
 cd $GENN

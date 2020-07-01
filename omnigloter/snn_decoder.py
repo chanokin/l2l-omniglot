@@ -183,7 +183,7 @@ class Decoder(object):
         prob_noise = params['sim']['prob_noise']
         ntest = params['sim']['test_per_class']
         nepochs = params['sim']['num_epochs']
-        nlayers = params['sim']['input_layers']
+        # nlayers = params['sim']['input_layers']
         in_shape = params['sim']['input_shape']
         in_divs = params['sim']['input_divs']
         total_fs = nclass*nsamp*nepochs + nclass*ntest
@@ -242,12 +242,17 @@ class Decoder(object):
             for f in files[nsamp:]:
                 test_fnames.append(f)
 
+        f = test_fnames[0]
+        nlayers = 0
+        with np.load(f, allow_pickle=True) as spk:
+            nlayers = len(spk['kernels'].item())
+
         t_creation_start = time.time()
         tmp = {}
         labels = []
         spikes = {i: None for i in range(nlayers)}
         shapes = {i: None for i in range(nlayers)}
-
+        
         dt = params['sim']['sample_dt']
         dt_idx = 0
         total_fs = float(len(fnames) + len(test_fnames))
@@ -676,6 +681,12 @@ class Decoder(object):
         shapes = self.in_shapes
         divs = params['sim']['input_divs']
         nz = self.num_zones_mushroom(shapes, radius, divs)
+        # e2e_inh_conn = utils.wta_mush_conn_list_a2a(shapes, nz, exc.size, iw, config.TIMESTEP)
+        # prjs['e to i'] = sim.Projection(exc, exc,
+        #                     sim.FromListConnector(e2e_inh_conn),
+        #                     label='mushroom to mushroom inh',
+        #                     receptor_type='inhibitory')
+
 
         icon, econ = utils.wta_mush_conn_list(shapes, nz, exc.size, iw, ew, config.TIMESTEP)
         prjs['e to i'] = sim.Projection(exc, inh,
@@ -720,11 +731,13 @@ class Decoder(object):
         post = self.output_population()
         prob = ind_par['out_prob']
         exp_size = params['ind']['expand']
-        max_w = ind_par['out_weight'] / exp_size
+        max_w = ind_par['out_weight'] #/ exp_size
 
         conn_list = utils.output_connection_list(pre.size, post.size, prob,
                                                  max_w, 0.1, max_pre=1000# , seed=123
                                                 )
+        if config.SAVE_INITIAL_WEIGHTS:
+            self.initial_weights = conn_list
 
         tdeps = {k: ind_par[k] if k in ind_par else config.TIME_DEP_VARS[k] \
                                                 for k in config.TIME_DEP_VARS}
@@ -803,8 +816,8 @@ class Decoder(object):
 
         logging.info("\tRunning experiment for {} milliseconds".format(net['run_time']))
 
-        sys.stdout.write("\n\n\tRunning step {} out of {}\n\n".format(1, steps))
-        sys.stdout.flush()
+        #sys.stdout.write("\n\n\tRunning step {} out of {}\n\n".format(1, steps))
+        #sys.stdout.flush()
 
         __died__ = False
         records = {}
@@ -821,14 +834,16 @@ class Decoder(object):
             sys.stdout.write("\n\n\tRunning step {} out of {}\t".format(step + 1, steps))
             sys.stdout.write("From {} to {} \n\n\n".format(st, st + duration))
             sys.stdout.flush()
-            try:
-                sim.run(duration)
-            except Exception as inst:
-                sys.stdout.write("\n\n\tExperiment died!!!\n\n")
-                sys.stdout.write("Exception is {}\n\n\n".format(inst))
-                sys.stdout.flush()
-                __died__ = True
-                break
+
+            sim.run(duration)
+            #try:
+            #    sim.run(duration)
+            #except Exception as inst:
+            #    sys.stdout.write("\n\n\tExperiment died!!!\n\n")
+            #    sys.stdout.write("Exception is {}\n\n\n".format(inst))
+            #    sys.stdout.flush()
+            #    __died__ = True
+            #    break
 
 
         for pop in net['populations']:
@@ -839,7 +854,10 @@ class Decoder(object):
                     sys.stdout.write("\n\n\n\tUnable to get spikes from {}\n\n".format(pop))
                     sys.stdout.flush()
                     __died__ = True
-                
+        
+        if config.SAVE_INITIAL_WEIGHTS:
+            weights['initial'] = self.initial_weights
+
         if not __died__:
             for proj in net['projections']:
                 if proj in config.RECORD_WEIGHTS:
