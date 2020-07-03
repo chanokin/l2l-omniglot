@@ -496,11 +496,17 @@ def split_to_inh_exc(conn_list, epsilon=float(1e-6)):
 
 
 def split_spikes(spikes, n_types):
-    spikes_out = [[] for _ in range(n_types)]
+    spikes_out = {k: [] for k in range(n_types)}
     n_per_type = spikes.shape[0] // n_types
     for type_idx in range(n_types):
         for nidx in range(n_per_type):
-            spikes_out[type_idx].append(spikes[type_idx * n_per_type + nidx])
+            arr = np.array(spikes[type_idx * n_per_type + nidx])
+            # if arr.size > 0:
+            #    print(arr)
+            spikes_out[type_idx].append(arr)
+
+        #print(len([1 for ts in spikes_out[type_idx] if ts.size > 0]))
+
     return spikes_out
 
 
@@ -516,11 +522,14 @@ def div_index(orig_index, orig_shape, divs):
 def reduce_spike_place(spikes, shape, divs):
     fshape = [shape[0] // divs[0] + int(shape[0] % divs[0] > 0),
               shape[1] // divs[1] + int(shape[1] % divs[1] > 0)]
-    fspikes = [[] for _ in range(fshape[0] * fshape[1])]
+    fspikes = [None for _ in range(fshape[0] * fshape[1])]
     for pre, times in enumerate(spikes):
         fpre = div_index(pre, shape, divs)
-        fspikes[fpre] += times
-        fspikes[fpre][:] = np.unique(sorted(fspikes[fpre]))
+        if fspikes[fpre] is None:
+            fspikes[fpre] = times
+        else:
+            fspikes[fpre] = np.append(fspikes[fpre], times)
+            fspikes[fpre][:] = np.unique(sorted(fspikes[fpre]))
 
     return fshape, fspikes
 
@@ -551,29 +560,33 @@ def append_spikes(source, added, dt):
     for i, times in enumerate(added):
         if len(times) == 0:
             continue
-        source[i][:] = sorted(source[i] + (np.array(times) + dt).tolist())
+        #print(type(source[i]), type(times)) 
+        source[i] = np.append(source[i], np.sort(times + dt))
     return source
 
 
 def add_noise(prob, spikes, start_t, end_t):
-    on_neurons = [i for i in range(len(spikes)) if len(spikes[i]) > 0]
 
     n_toggle = int(len(spikes) * prob)
-    n_toggle = int(len(on_neurons) * prob) if n_toggle >= len(on_neurons) else n_toggle
+    #n_toggle = int(len(on_neurons) * prob) if n_toggle >= len(on_neurons) else n_toggle
 
-    on_to_toggle = np.random.choice(on_neurons, size=n_toggle, replace=False)
-
-    for tog in on_to_toggle:
-        spikes[tog][:] = []
-
-    off_neurons = [i for i in range(len(spikes)) if len(spikes[i]) == 0]
+    off_neurons = np.arange(len(spikes))#[i for i in range(len(spikes)) if len(spikes[i]) == 0]
     off_to_toggle = np.random.choice(off_neurons, size=n_toggle, replace=False)
     for tog in off_to_toggle:
         spikes[tog][:] = [float(np.random.randint(start_t, end_t))]
 
+
+    on_neurons = np.arange(len(spikes))#[i for i in range(len(spikes)) if len(spikes[i]) > 0]
+    on_to_toggle = np.random.choice(on_neurons, size=n_toggle, replace=False)
+    for tog in on_to_toggle:
+        spikes[tog][:] = []
+
     return spikes
 
 def split_ssa(ssa, n_steps, duration, round_times):
+    if n_steps == 1:
+        return {0.0: ssa}
+
     dt = duration // n_steps
     s = {}
     for loop, st in enumerate(np.arange(0, duration, dt)):
@@ -581,19 +594,25 @@ def split_ssa(ssa, n_steps, duration, round_times):
         sys.stdout.flush()
         et = st + dt
         s[st] = {}
-        for i in ssa:
-            s[st][i] = []
-            for times in ssa[i]:
+        for layer in ssa:
+            s[st][layer] = [] 
+            for times in ssa[layer]:
                 ts = np.asarray(times)
                 whr = np.where(np.logical_and(st <= ts, ts < et))
                 arr = np.round(ts[whr]) if round_times else ts[whr]
-                s[st][i].append(sorted(arr.tolist()))
+                s[st][layer].append(arr.tolist())
 
     sys.stdout.write("\n\n")
     sys.stdout.flush()
 
     return s
 
+def randomize_ssa(ssa, start_t, end_t, decimals):
+    return [np.around(
+                np.random.uniform(start_t, end_t, size=ts.shape), 
+                decimals=decimals) if ts.size > 0 else ts
+                    for ts in ssa]
+    
 def compress_spikes_list(spikes_list, start_t, end_t, randomize=True, period=10, decimals=0):
     sl = np.array(spikes_list)
     whr = np.where(np.logical_and(start_t <= sl, sl < end_t))[0]

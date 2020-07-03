@@ -281,7 +281,7 @@ def main():
             population_size = gpus_per_node * nodes
         else:
             population_size = 18
-            population_size = 3
+            population_size = 1
         # population_size = 5
         p_hof = 0.25 if population_size < 100 else 0.1
         p_bob = 0.2

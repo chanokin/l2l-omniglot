@@ -35,7 +35,7 @@ N_EPOCHS = 10 if DEBUG else 1
 N_TEST = 4 if DEBUG else 4
 TOTAL_SAMPLES = N_SAMPLES * N_EPOCHS + N_TEST
 DURATION = N_CLASSES * TOTAL_SAMPLES * SAMPLE_DT
-PROB_NOISE_SAMPLE = 0.1
+PROB_NOISE_SAMPLE = 0.0
 STEPS = 1 if SIM_NAME == GENN else 100
 
 KERNEL_W = 7
@@ -49,7 +49,7 @@ if ONE_TO_ONE_EXCEPTION:
     EXPANSION_RANGE = (1., 1.0000000000000000000001)
 else:
     # EXPANSION_RANGE = (10., 10.0001) if DEBUG else (0.25, 11.0)
-    EXPANSION_RANGE = (20., 21.0) if DEBUG else (50, )#(0.25, 20.0)
+    EXPANSION_RANGE = (20., 21.0) if DEBUG else (20, )#(0.25, 20.0)
 
 
 EXP_PROB_RANGE = (0.5, 0.75000001) if DEBUG else (0.05, )#0.25)
@@ -84,7 +84,17 @@ CONN_DIST = (5, 15) if DEBUG else (5, )#(3, 20)
 
 GABOR_WEIGHT_RANGE = (2.0, 5.000001) if DEBUG else (1.0, 5.0)
 
+GAIN_CONTROL_SIZE = 20
+GAIN_CONTROL_MIN_W = 0.1
+GAIN_CONTROL_MAX_W = 0.075
+GAIN_CONTROL_INH_W = 0.00000
+GAIN_CONTROL_CUTOFF = 0.75
 
+
+NOISE_MUSHROOM_SIZE = 20
+NOISE_MUSHROOM_RATE = 50
+NOISE_MUSHROOM_WEIGHT = 0.1
+NOISE_MUSHROOM_PROB = 0.1
 
 ###############
 # if ONE_TO_ONE_EXCEPTION:
@@ -250,7 +260,7 @@ INH_OUTPUT_CLASS = 'IF_curr_exp'
 ### Neuron configuration
 VTHRESH = -55.0
 BASE_PARAMS = {
-    'cm': 0.09,  # nF
+    'cm': 0.1,  # nF
     'v_reset': -70.,  # mV
     'v_rest': -65.,  # mV
     'tau_m': 10.,  # ms
@@ -258,6 +268,10 @@ BASE_PARAMS = {
     'tau_syn_E': 2., # ms
     'tau_syn_I': 5., # ms
 }
+
+INH_PARAMS = BASE_PARAMS.copy()
+INH_PARAMS['v_thresh'] = -55.0
+INH_PARAMS['tau_m'] = 16.0
 
 tau_thresh = 30.0
 #tau_thresh = 50.0
@@ -275,8 +289,9 @@ MUSHROOM_PARAMS['tau_syn_I'] = 10.
 MUSHROOM_PARAMS['cm'] = 1.0
 MUSHROOM_PARAMS['tau_m'] = 20.0
 
-INH_MUSHROOM_PARAMS = BASE_PARAMS.copy()
-INH_OUTPUT_PARAMS = BASE_PARAMS.copy()
+INH_MUSHROOM_PARAMS = INH_PARAMS.copy()
+INH_OUTPUT_PARAMS = INH_PARAMS.copy()
+GAIN_CONTROL_PARAMS = INH_PARAMS.copy()
 
 OUTPUT_PARAMS = BASE_PARAMS.copy()
 OUTPUT_PARAMS['v_threshold'] = VTHRESH  # mV
@@ -291,6 +306,7 @@ OUTPUT_PARAMS['tau_syn_I'] = 5.
 RECORD_SPIKES = [
     # 'input',
     # 'gabor',
+    'gain_control',
     'mushroom',
     # 'inh_mushroom',
     'output',

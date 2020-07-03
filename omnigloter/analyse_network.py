@@ -7,7 +7,7 @@ ZERO_FLOAT = 1.0e-9
 
 
 def bin_spikes(spikes, dt, start_t, end_t):
-    bins = np.arange(start_t, end_t-dt, dt)
+    bins = np.arange(start_t, end_t, dt)
     
     bs = [[[] for _ in range(len(spikes))] 
               for _ in np.arange(start_t, end_t, dt)]
@@ -15,7 +15,7 @@ def bin_spikes(spikes, dt, start_t, end_t):
     for i, times in enumerate(spikes):
         inds = np.digitize(times, bins)
         for j in range(len(times)):
-            b = inds[j]
+            b = inds[j] - 1
             bs[b][i].append(times[j])
     return bs
 
