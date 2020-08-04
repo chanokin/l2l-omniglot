@@ -13,14 +13,18 @@ from omnigloter import stdp_mech as __stdp__
 from omnigloter import neuron_model as __neuron__
 from omnigloter import config
 from omnigloter import utils
+from omnigloter.MaxDistanceFixedProbabilityConnector import \
+    MaxDistanceFixedProbabilityConnector
+from pynn_genn.random import NativeRNG, NumpyRNG, RandomDistribution
 
 if config.SIM_NAME == config.SPINNAKER:
     import pyNN.spiNNaker as sim
 elif config.SIM_NAME == config.GENN:
     import pynn_genn as sim
 
+from pyNN.space import Grid3D
 
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 
 
@@ -48,6 +52,9 @@ class Decoder(object):
         self.decode(params)
         logging.info("In Decoder init, %s"%name)
 
+        self.np_rng = None # NumpyRNG(seed=config.SEED)
+        self.rng = None # NativeRNG(self.np_rng, seed=config.SEED)
+
         print('\n\n')
         env = os.environ
         for k in env:
@@ -56,7 +63,7 @@ class Decoder(object):
                'proc' in klow or 'nodelist' in klow:
                 print( '{} = {}'.format(k, env[k]) )
 
-	
+
         if "GPU_DEVICE_ORDINAL" in os.environ:
             print("\n\n\nGPU_DEVICE_ORDINAL = {}\n\n".format(os.environ["GPU_DEVICE_ORDINAL"]))
         else:
@@ -72,6 +79,9 @@ class Decoder(object):
         # pprint(params)
 
     def decode(self, params):
+        self.np_rng = NumpyRNG(seed=config.SEED)
+        self.rng = NativeRNG(self.np_rng, seed=config.SEED)
+
         self._network = {}
         self._network['timestep'] = params['sim'].get('timestep', config.TIMESTEP)
         self._network['min_delay'] = params['sim'].get('min_delay', config.TIMESTEP)
@@ -104,10 +114,10 @@ class Decoder(object):
 #                    GPU_ID = np.random.randint(0, 4)
                     time.sleep(config.RNG.randint(1, 5))
                     GPU_ID = cuda_utils.pick_gpu_lowest_memory()
-                
+
                 print("\n{}\n\nchosen gpu id = {}\n".format(
                     os.environ["CUDA_VISIBLE_DEVICES"], GPU_ID))
-		 
+
                 setup_args['selected_gpu_id'] = GPU_ID
             else:
                 setup_args['selected_gpu_id'] = config.GPU_ID
@@ -261,7 +271,7 @@ class Decoder(object):
         labels = []
         spikes = {i: [] for i in range(nlayers)}
         shapes = {i: None for i in range(nlayers)}
-        
+
         dt = params['sim']['sample_dt']
         dt_idx = 0
         total_fs = float(len(fnames) + len(test_fnames))
@@ -389,8 +399,9 @@ class Decoder(object):
 
         ins = {}
         for i in self.inputs[0]:
+            shp = tuple( [int(v) for v in list(self.in_shapes[i])] )
             s = len(self.inputs[0][i])
-            p = sim.Population(s, sim.SpikeSourceArray,
+            p = sim.Population(shp, sim.SpikeSourceArray,
                                {'spike_times': self.inputs[0][i]},
                                label='input layer %s'%i)
 
@@ -452,12 +463,28 @@ class Decoder(object):
             return self._network['populations']['mushroom']
 
         count = self.mushroom_size(params)
+        radius = np.copy(params['ind']['conn_dist'])
+        shapes = self.in_shapes
+        divs = params['sim']['input_divs']
+        nz = self.num_zones_mushroom(shapes, radius, divs)
 
         sys.stdout.write("\tMushroom size: {}\n".format(count))
         sys.stdout.flush()
         neuron_type = getattr(__neuron__, config.MUSHROOM_CLASS)
+        _Y, _X = 0, 1
+        n_y, n_x = int(nz[0][_Y]), int(nz[0][_X])
+        n_z = int( count // (n_y * n_x) )
+        shape_post = (n_x, n_y, n_z)
+        n_post = int(np.prod(shape_post))
+        ratioXY = float(shape_post[0]) / shape_post[1]
+        ratioXZ = float(shape_post[0]) / shape_post[2]
+        dx = shapes[0][_X] // float(n_x)
+        dy = shapes[0][_Y] // float(n_y)
+        structure = Grid3D(ratioXY, ratioXZ,
+                           dx=dx, dy=dy, dz=0.001 * (1. / n_z))
+
         p = sim.Population(count, neuron_type, config.MUSHROOM_PARAMS,
-                           label='mushroom')
+                           structure=structure, label='mushroom')
 
         if 'mushroom' in config.RECORD_SPIKES:
             p.record('spikes')
@@ -495,7 +522,8 @@ class Decoder(object):
             d = (1, 1) if k < 2 else divs
             nz[k] = []
             for i in range(len(d)):
-                r = max(1.0, np.floor((2.0 * radius) / d[i]))
+                r = np.floor((2.0 * radius + 1.) / d[i])
+                r = max(1.0, r * (2./3.))
                 nz[k].append( max(1.0, np.ceil(in_shapes[k][i]/r)) )
 
             total += np.prod(nz[k])
@@ -692,22 +720,29 @@ class Decoder(object):
         shapes = self.in_shapes
         divs = params['sim']['input_divs']
         nz = self.num_zones_mushroom(shapes, radius, divs)
-        if config.ONE_TO_ONE_EXCEPTION == True:
-            conns = utils.o2o_conn_list(shapes, nz, post.size, radius, prob, weight, delay)
-        else:
-            conns = utils.dist_conn_list(shapes, nz, post.size, radius, prob, weight, delay)
+        # if config.ONE_TO_ONE_EXCEPTION == True:
+        #     conns = utils.o2o_conn_list(shapes, nz, post.size, radius, prob, weight, delay)
+        # else:
+        #     conns = utils.dist_conn_list(shapes, nz, post.size, radius, prob, weight, delay)
 
-        self._in_to_mush_conns = conns
+        syn = sim.StaticSynapse(weight=weight, delay=delay)
+        # self._in_to_mush_conns = conns
         projs = {}
 
         for k, pre in self.input_populations().items():
-            if len(conns[k]):
+            # if len(conns[k]):
                 projs[k] = sim.Projection(pre, post,
-                            sim.FromListConnector(conns[k]),
+                            MaxDistanceFixedProbabilityConnector(max_dist=radius,
+                                                                 probability=prob,
+                                                                 rng=self.rng),
+
+                            # sim.FromListConnector(conns[k]),
                             label='input to mushroom - {}'.format(k),
-                            receptor_type='excitatory')
-            else:
-                projs[k] = None
+                            receptor_type='excitatory',
+                            use_procedural=config.USE_PROCEDURAL)
+                print(k)
+            # else:
+            #     projs[k] = None
 
         return projs
 
@@ -1040,7 +1075,7 @@ class Decoder(object):
                     sys.stdout.write("\n\n\n\tUnable to get spikes from {}\n\n".format(pop))
                     sys.stdout.flush()
                     __died__ = True
-        
+
         if config.SAVE_INITIAL_WEIGHTS:
             weights['initial'] = self.initial_weights
 
