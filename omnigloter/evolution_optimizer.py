@@ -304,7 +304,7 @@ class GeneticAlgorithmOptimizer(Optimizer):
                 for i, o1 in enumerate(offspring[:-1]):
                     for o2 in offspring[i+1:]:
                         if tuple(np.round(o1, decimals=4)) == tuple(np.round(o2, decimals=4)):
-                            if random.random() < 0.8:
+                            #if random.random() < 0.9:
                                 # self.toolbox.mutate(o2)
                                 o2[:] = spawn()
                                 del o2.fitness.values

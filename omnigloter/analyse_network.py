@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import operator
 from collections import OrderedDict
+from omnigloter import config
 
 ZERO_FLOAT = 1.0e-9
 
@@ -43,26 +44,18 @@ def spikes_correlations(vec_dict):
             acc_lens.append(lens[i0-1] + acc_lens[i0-1])
 
     for i0, c0 in enumerate(cls):
-    #     print(i0)
         for i1, c1 in enumerate(cls):
             if i1 < i0:
                 continue
-    #         print(i0, i1)
             for j0, v0 in enumerate(vs[c0]):
                 for j1, v1 in enumerate(vs[c1]):
                     if j1 < j0:
                         continue
-    #                 print(c0, c1, j0, j1, acc_lens[i0] + j0, acc_lens[i1] + j1)
-
-    #                         if c0 == c1 and j0 == j1:
-    #                             continue
-    #                         v = np.logical_and(v0, v1).sum()
                     v0 = np.asarray(v0)
                     v1 = np.asarray(v1)
                     norm = np.sqrt((v0**2).sum() * (v1**2).sum())
 
                     v = (v0 * v1).sum()/ norm if norm > 0 else np.nan
-    #                 print(v)
 
                     over[acc_lens[i0] + j0, acc_lens[i1] + j1] = v
                     over[acc_lens[i0] + j1, acc_lens[i1] + j0] = v
@@ -78,7 +71,47 @@ def target_frequency_error(target, spikes, power=1):
 def mean_target_frequency_error(target, spikes, power=1):
     return target_frequency_error(target, spikes, power) / float(len(spikes))
     
+def inter_class_distance(_activity_per_sample, labels, n_out):
+    class_samples = {}
+    max_active = 0
+    for idx, lbl in enumerate(labels):
+        lbl_list = class_samples.get(lbl, [])
+        lbl_list.append( _activity_per_sample[idx])
+        class_samples[lbl] = lbl_list
+        
+        if len(_activity_per_sample[idx]) > max_active:
+            max_active = len(_activity_per_sample[idx])
 
+    if max_active == 0:
+        return -config.INF
+    
+    dists = []
+    classes = sorted(class_samples.keys())
+    pcd = {c: np.zeros_like(n_out) for c in classes}
+    for c in classes:
+        for s in class_samples[c]:
+            if len(s) == 0:
+                continue
+            pcd[c][s] = 1
+
+    for i0, c0 in enumerate(clss[:-1]):
+        for c1 in clss[i0+1]:
+            v0 = pcd[c0]
+            v1 = pcd[c1]
+            l0 = np.sum(v0)
+            l1 = np.sum(v1)
+
+            if l0 > 0 and l1 > 0:
+                w = 1./np.sqrt(l0 + l1)
+                d = ( np.sum( np.abs(v0 - v1) ) ) * w
+            else:
+                d = 0.
+
+            dists.append(d)
+
+    return dists
+
+           
 
 def mean_per_sample_class_distance(_activity_per_sample, labels, n_out):
     return np.mean(
@@ -96,7 +129,7 @@ def per_sample_class_distance(_activity_per_sample, labels, n_out):
             max_active = len(_activity_per_sample[idx])
 
     if max_active == 0:
-        return 0
+        return -config.INF * len(labels)
     
     v0 = np.zeros(n_out)
     v1 = np.zeros(n_out)
@@ -115,10 +148,10 @@ def per_sample_class_distance(_activity_per_sample, labels, n_out):
                         v1[samp1] = 1
                     
                     if len(samp0) > 0 and len(samp1) > 0:
-                        w = 1./(2.*max(len(samp0), len(samp1)))
+                        w = 1./(np.sqrt(len(samp0) + len(samp1)))
                         dists.append( np.sum(np.abs(v0 - v1)) * w )
                     else:
-                        dists.append( 0 )
+                        dists.append( -1. )
 
     return dists
 
@@ -247,12 +280,12 @@ def get_distances(neurons_per_label):
 
     return dists
 
-def mean_neurons_sharing_class(labels, spikes, start_t, dt):
+def mean_neurons_sharing_class(labels, spikes, start_t, dt, power=1):
     labels_per_neuron = get_labels_per_neuron(
                             labels, spikes, start_t, dt)
     n_labels_per_neuron = [len(np.unique(labels_per_neuron[k]))
                                 for k in labels_per_neuron]
-    hi_n_labels_per_neuron = [n - 1 for n in n_labels_per_neuron if n > 0]
+    hi_n_labels_per_neuron = [(n - 1)**power for n in n_labels_per_neuron if n > 0]
     if len(hi_n_labels_per_neuron) == 0:
         return 0
 

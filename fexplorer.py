@@ -28,7 +28,7 @@ ON_TITAN = bool(1)
 USE_MPI = bool(0)
 MULTIPROCESSING = (ON_JEWELS or USE_MPI or bool(1)) and (
                   not config.DEBUG)# or not ON_TITAN)
-MULTIPROCESSING = False
+#MULTIPROCESSING = False
 
 NUM_SIMS = 1
 
@@ -235,6 +235,8 @@ def main():
         [config.ATTR_STEPS[k] for (k, spec, length) in dict_spec])
 
     fit_weights = [1.0, ]  # 0.1]
+
+    optimizer_seed = config.SEED
     if OPTIMIZER == GRADDESC:
         n_random_steps = 100
         n_iteration = 1000
@@ -246,7 +248,7 @@ def main():
             momentum_decay=0.5,
             n_iteration=n_iteration,
             stop_criterion=np.inf,
-            seed=99)
+            seed=optimizer_seed)
 
         optimizer = GradientDescentOptimizer(
             traj,
@@ -256,7 +258,6 @@ def main():
             optimizee_bounding_func=optimizee.bounding_func)
 
     elif OPTIMIZER == EVOSTRAT:
-        optimizer_seed = 1234
         parameters = EvolutionStrategiesParameters(
             learning_rate=0.0001,
             noise_std=step_size,
@@ -274,16 +275,16 @@ def main():
             parameters=parameters,
             optimizee_bounding_func=optimizee.bounding_func)
     else:
-        num_generations = 1#000
+        num_generations = 1000
         if ON_JEWELS:
             nodes = 12
             gpus_per_node = 4
             population_size = gpus_per_node * nodes
         else:
-            population_size = 18
-            population_size = 1
+            population_size = 30
+            #population_size = 1
         # population_size = 5
-        p_hof = 0.25 if population_size < 100 else 0.1
+        p_hof = 0.25 if population_size < 50 else 0.1
         p_bob = 0.2
         # last_trajs = load_last_trajs(os.path.join(
         #    paths.output_dir_path, 'per_gen_trajectories'))
@@ -294,7 +295,7 @@ def main():
         #         last_trajs, population_size, optimizee)
         attr_steps = [config.ATTR_STEPS[k[0]] for k in dict_spec]
         parameters = GeneticAlgorithmParameters(
-            seed=None,
+            seed=optimizer_seed,
             popsize=population_size,
             CXPB=0.5,  # probability of mating 2 individuals
             # note: moved from 0.8 to 0.6 mutpb to see if it removes bouncing
