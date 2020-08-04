@@ -28,7 +28,7 @@ ON_TITAN = bool(1)
 USE_MPI = bool(0)
 MULTIPROCESSING = (ON_JEWELS or USE_MPI or bool(1)) and (
                   not config.DEBUG)# or not ON_TITAN)
-#MULTIPROCESSING = False
+MULTIPROCESSING = False
 
 NUM_SIMS = 1
 

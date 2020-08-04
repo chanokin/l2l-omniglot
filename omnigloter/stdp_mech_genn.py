@@ -110,6 +110,16 @@ class MyWeightDependence(synapses.AdditiveWeightDependence, WeightDependence):
 
     translations = build_translations(*WeightDependence.wd_translations)
 
+
+# class MyWeightDependence(synapses.AdditiveWeightDependence, WeightDependence):
+#     __doc__ = synapses.AdditiveWeightDependence.__doc__
+#
+#     depression_update_code = "$(g) = fmin($(Wmax), fmax($(Wmin), $(g) + (($(Wmax) - $(Wmin)) * update)));\n"
+#
+#     potentiation_update_code = "$(g) = fmin($(Wmax), fmax($(Wmin), $(g) + (($(Wmax) - $(Wmin)) * update)));\n"
+#
+#     translations = build_translations(*WeightDependence.wd_translations)
+
 class MyTemporalDependence(synapses.STDPTimingDependence):
     # __doc__ = synapses.SpikePairRule.__doc__
     ### will try to do a displaced gaussian
