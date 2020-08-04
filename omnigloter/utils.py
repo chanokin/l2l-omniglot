@@ -266,6 +266,35 @@ def dist_conn_list(in_shapes, num_zones, out_size, radius, prob, weight, delay):
     sys.stdout.flush()
     return conns
 
+def get_pre_indices_dist(in_shape, post_row, post_col, radius):
+    print("\tin get_pre_indices_dist")
+    print("\t\tpre shape {}".format(in_shape))
+    print("\t\tpost_row {}".format(post_row))
+    print("\t\tpost_col {}".format(post_col))
+    print("\t\tradius {}".format(radius))
+
+    zr = post_row
+    zc = post_col
+    pad = radius
+    height, width = in_shape[HEIGHT], in_shape[WIDTH]
+
+    # centre row in terms of in_shape
+
+    pre_r = int( min(pad + zr * 2 * radius, height - 1) )
+    # low and high limits for rows
+    row_l, row_h = int(max(0, pre_r - radius)), int(min(height, pre_r + radius))
+
+    # centre column in terms of in_shape
+    pre_c = int( min(pad + zc * 2 * radius, width - 1) )
+    # low and high limits for columns
+    col_l, col_h = int(max(0, pre_c - radius)), int(min(width, pre_c + radius))
+
+    # square grid of coordinates
+    cols, rows = np.meshgrid(np.arange(col_l, col_h,),
+                             np.arange(row_l, row_h))
+
+
+    return (rows * width + cols).flatten()
 
 
 def wta_mush_conn_list(in_shapes, num_zones, out_size, iweight, eweight, delay):

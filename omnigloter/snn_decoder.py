@@ -399,11 +399,20 @@ class Decoder(object):
             return self._network['populations']['mushroom']
 
         count = self.mushroom_size(params)
+        radius = params['ind']['conn_dist']
+        shapes = self.in_shapes
+        divs = params['sim']['input_divs']
+        nz = self.num_zones_mushroom(shapes, radius, divs)
+
 
         sys.stdout.write("\tMushroom size: {}\n".format(count))
         sys.stdout.flush()
         neuron_type = getattr(__neuron__, config.MUSHROOM_CLASS)
-        p = sim.Population(count, neuron_type, config.MUSHROOM_PARAMS,
+        total_zones = nz['total']
+        # del nz['total']
+        pops = []
+        n_neurons = int(count // total_zones)
+        p = sim.Population(n_neurons, neuron_type, config.MUSHROOM_PARAMS,
                            label='mushroom')
 
         if 'mushroom' in config.RECORD_SPIKES:
@@ -621,23 +630,32 @@ class Decoder(object):
         shapes = self.in_shapes
         divs = params['sim']['input_divs']
         nz = self.num_zones_mushroom(shapes, radius, divs)
-        if config.ONE_TO_ONE_EXCEPTION == True:
-            conns = utils.o2o_conn_list(shapes, nz, post.size, radius, prob, weight, delay)
-        else:
-            conns = utils.dist_conn_list(shapes, nz, post.size, radius, prob, weight, delay)
+        n_post = int(post.size // nz['total'])
+        # if config.ONE_TO_ONE_EXCEPTION == True:
+        #     conns = utils.o2o_conn_list(shapes, nz, post.size, radius, prob, weight, delay)
+        # else:
+        #     conns = utils.dist_conn_list(shapes, nz, post.size, radius, prob, weight, delay)
 
-        self._in_to_mush_conns = conns
+        # self._in_to_mush_conns = conns
         projs = {}
 
         for k, pre in self.input_populations().items():
-            if len(conns[k]):
-                projs[k] = sim.Projection(pre, post,
-                            sim.FromListConnector(conns[k]),
-                            label='input to mushroom - {}'.format(k),
-                            receptor_type='excitatory')
-            else:
-                projs[k] = None
+            ps_k = []
+            for r in range(nz[k][utils.ROWS]):
+                ps_r = []
+                for c in range(nz[k][utils.COLS]):
+                    pre_indices = utils.get_pre_indices_dist(shapes[k], r, c, radius)
+                    start_post = (r * len(nz[k]) + c) * n_post
+                    end_post = min(post.size, start_post + n_post)
+                    p = sim.Projection(pre[pre_indices], post[start_post:end_post],
+                                sim.FixedProbabilityConnector(prob),
+                                synapse_type=sim.StaticSynapse(weight=weight),
+                                label='input to mushroom - {} ({}, {})'.format(k, r, c),
+                                receptor_type='excitatory')
+                    ps_r.append(p)
+                ps_k.append(ps_r)
 
+            projs[k] = ps_k
         return projs
 
     def wta_gabor(self, params=None):
@@ -681,44 +699,58 @@ class Decoder(object):
         shapes = self.in_shapes
         divs = params['sim']['input_divs']
         nz = self.num_zones_mushroom(shapes, radius, divs)
+        n_post = int( exc.size // nz['total'] )
         # e2e_inh_conn = utils.wta_mush_conn_list_a2a(shapes, nz, exc.size, iw, config.TIMESTEP)
         # prjs['e to i'] = sim.Projection(exc, exc,
         #                     sim.FromListConnector(e2e_inh_conn),
         #                     label='mushroom to mushroom inh',
         #                     receptor_type='inhibitory')
+        d = config.TIMESTEP
+        ps = []
+        for p_start in range(0, exc.size, n_post):
+            p_end = min(exc.size, p_start + n_post)
+            p = sim.Projection(exc[p_start:p_end], exc[p_start:p_end],
+                        sim.AllToAllConnector(),
+                        sim.StaticSynapse(weight=iw, delay=d),
+                        label='mushroom to mushroom inh',
+                        receptor_type='inhibitory')
 
+            # icon, econ = utils.wta_mush_conn_list(shapes, nz, exc.size, iw, ew, config.TIMESTEP)
+            # i_idx = r * len(row) + c
+            # prjs['e to i'] = sim.Projection(e_pop, inh[i_idx],
+            #                     sim.AllToAllConnector(),
+            #                     sim.StaticSynapse(weight=ew, delay=d),
+            #                     label='mushroom to inh_mushroom ({}, {})'.format(r, c),
+            #                     receptor_type='excitatory')
+            #
+            # prjs['i to e'] = sim.Projection(inh[i_idx], e_pop,
+            #                     sim.AllToAllConnector(),
+            #                     sim.StaticSynapse(weight=iw, delay=d),
+            #                     label='inh_mushroom to mushroom ({}, {})'.format(r, c),
+            #                     receptor_type='inhibitory')
 
-        icon, econ = utils.wta_mush_conn_list(shapes, nz, exc.size, iw, ew, config.TIMESTEP)
-        prjs['e to i'] = sim.Projection(exc, inh,
-                            sim.FromListConnector(econ),
-                            label='mushroom to inh_mushroom',
-                            receptor_type='excitatory')
+            # prjs['e to i'] = sim.Projection(exc, inh,
+            #                     sim.AllToAllConnector(),
+            #                     sim.StaticSynapse(weight=ew, delay=TIMESTEP),
+            #                     label='mushroom to inh_mushroom',
+            #                     receptor_type='excitatory')
+            #
+            # prjs['i to e'] = sim.Projection(inh, exc,
+            #                     sim.AllToAllConnector(),
+            #                     sim.StaticSynapse(weight=INHIBITORY_WEIGHT['mushroom'],
+            #                                       delay=TIMESTEP),
+            #                     label='inh_mushroom to mushroom',
+            #                     receptor_type='inhibitory')
+            start_post = (r * len(nz[k]) + c) * n_post
+            end_post = min(post.size, start_post + n_post)
 
-        prjs['i to e'] = sim.Projection(inh, exc,
-                            sim.FromListConnector(icon),
-                            label='inh_mushroom to mushroom',
-                            receptor_type='inhibitory')
-
-        # prjs['e to i'] = sim.Projection(exc, inh,
-        #                     sim.AllToAllConnector(),
-        #                     sim.StaticSynapse(weight=ew, delay=TIMESTEP),
-        #                     label='mushroom to inh_mushroom',
-        #                     receptor_type='excitatory')
-        #
-        # prjs['i to e'] = sim.Projection(inh, exc,
-        #                     sim.AllToAllConnector(),
-        #                     sim.StaticSynapse(weight=INHIBITORY_WEIGHT['mushroom'],
-        #                                       delay=TIMESTEP),
-        #                     label='inh_mushroom to mushroom',
-        #                     receptor_type='inhibitory')
-
-        # prjs['e to e'] = sim.Projection(exc, exc,
-        #                     sim.FixedProbabilityConnector(MUSH_SELF_PROB),
-        #                     sim.StaticSynapse(weight=INHIBITORY_WEIGHT['mushroom'],
-        #                                       delay=TIMESTEP),
-        #                     label='inh_mushroom to mushroom',
-        #                     receptor_type='inhibitory')
-
+            p = sim.Projection(e_pop, e_pop,
+                    # sim.FixedProbabilityConnector(MUSH_SELF_PROB),
+                    sim.AllToAllConnector(),
+                    sim.StaticSynapse(weight=iw, delay=d),
+                    label='inh_mushroom to mushroom',
+        receptor_type='inhibitory')
+        prjs['e to e'] = ps
         return prjs
 
 
@@ -743,7 +775,7 @@ class Decoder(object):
                                                 for k in config.TIME_DEP_VARS}
 #         print("time deps ", tdeps)
         tdep = getattr(__stdp__, config.TIME_DEP)(**tdeps)
-        wdep = getattr(__stdp__, config.WEIGHT_DEP)(ind_par['w_min_mult']*max_w, ind_par['w_max_mult']*max_w)
+        wdep = getattr(__stdp__, config.WEIGHT_DEP)(ind_par['w_min_mult'], ind_par['w_max_mult']*max_w)
         stdp = getattr(__stdp__, config.STDP_MECH)(timing_dependence=tdep, weight_dependence=wdep)
 
         p = sim.Projection(pre, post, sim.FromListConnector(conn_list), stdp,
