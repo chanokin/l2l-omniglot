@@ -87,7 +87,7 @@ for delay in delays:
 
 
         tdep = __stdp__.MyTemporalDependence(**time_dep_vars)
-        wdep = __stdp__.MyWeightDependence(w_min=0.0, w_max=max_w)
+        wdep = __stdp__.MyWeightDependence(w_min=-max_w, w_max=max_w)
         syn = __stdp__.MySTDPMechanism(
             timing_dependence=tdep, weight_dependence=wdep,
             weight=start_w, delay=delay,

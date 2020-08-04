@@ -8,9 +8,12 @@ def open_traj(path):
         return pickle.load(t)
 
 def name2gen(txt):
-    return int( (txt.split('.')[0]).split('_')[-1] )
+    print(txt)
+    return int( (txt.split('.')[-2]).split('_')[-1] )
 
 def open_all_trajectories(path, pattern='Trajectory_final_*.bin'):
+    path = os.path.abspath(path)
+    print(path)
     fnames = sorted(glob.glob(os.path.join(path, pattern)))
     ts = {}
     for f in fnames:

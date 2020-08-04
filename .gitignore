@@ -29,3 +29,5 @@ temp_figs/
 temp_fit/
 run_0/
 my_jube/
+*.png
+*.pdf
