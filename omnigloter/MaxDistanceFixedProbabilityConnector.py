@@ -102,13 +102,13 @@ class MaxDistanceFixedProbabilityConnector(DistanceDependentProbabilityConnector
             ("preRow", "int",
              "($(id_pre) / {}) * $(pre_dy) + $(pre_y0)".format(pre_per_row)),
             ("prevJ", "int",
-             "fmax(-1,\n"
-             "    ((preRow - $(post_y0)) / $(post_dy)) * {} - {} - 1\n"
+             "max(-1,\n"
+             "    (int)( ((preRow - $(post_y0)) / $(post_dy)) * {} - {} - 1 )\n"
              ")".format(post_per_row, delta_row)),
             ("endJ", "int",
-             "fmin({}, \n"
-             "    ((preRow - $(post_y0)) / $(post_dy)) * {} + {} + 1\n"
-             ")".format(n_post, post_per_row, delta_row)),
+             "min({}, \n"
+             "    (int)( ((preRow - $(post_y0)) / $(post_dy)) * {} + {} + 1 )\n"
+             ")".format(float(n_post), post_per_row, delta_row)),
         ]
         derived = [
             ("probLogRecip",
