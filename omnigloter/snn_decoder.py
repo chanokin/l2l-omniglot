@@ -475,7 +475,9 @@ class Decoder(object):
         n_y, n_x = int(nz[0][_Y]), int(nz[0][_X])
         n_z = int( count // (n_y * n_x) )
         shape_post = (n_x, n_y, n_z)
-        n_post = int(np.prod(shape_post))
+        count = int(np.prod(shape_post))
+        self._mushroom_size = count
+
         ratioXY = float(shape_post[0]) / shape_post[1]
         ratioXZ = float(shape_post[0]) / shape_post[2]
         dx = shapes[0][_X] // float(n_x)
@@ -716,7 +718,7 @@ class Decoder(object):
         prob = params['ind']['exp_prob']
         weight = params['ind']['mushroom_weight']
         delay = 4. if config.TIMESTEP == 1. else 1.
-        radius = np.copy(params['ind']['conn_dist'])
+        radius = float(np.copy(params['ind']['conn_dist']))
         shapes = self.in_shapes
         divs = params['sim']['input_divs']
         nz = self.num_zones_mushroom(shapes, radius, divs)
