@@ -108,7 +108,7 @@ class MaxDistanceFixedProbabilityConnector(DistanceDependentProbabilityConnector
             ("endJ", "int",
              "min({}, \n"
              "    (int)( ((preRow - $(post_y0)) / $(post_dy)) * {} + {} + 1 )\n"
-             ")".format(float(n_post), post_per_row, delta_row)),
+             ")".format(n_post, post_per_row, delta_row)),
         ]
         derived = [
             ("probLogRecip",
