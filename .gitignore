@@ -32,3 +32,5 @@ run_0/
 my_jube/
 *.png
 *.pdf
+*.pxd
+**/.eggs/
