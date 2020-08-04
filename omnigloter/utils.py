@@ -18,7 +18,7 @@ def post_shape(val, stride, kernel_width):
     return (((val - kernel_width) // stride) + 1)
 
 
-def randnum(vmin, vmax, div=None, rng=None):
+def randnum(vmin, vmax, div=None, rng=config.RNG):
     if isinstance(vmin, int):
         return randint_float(vmin, vmax, div, rng)
     v = rng.uniform(vmin, vmax)
@@ -39,7 +39,7 @@ def bound(val, num_range):
     return v
 
 
-def randint_float(vmin, vmax, div=None, rng=None):
+def randint_float(vmin, vmax, div=None, rng=config.RNG):
     rand_func = np.random if rng is None else rng
     if div is None:
         return np.float(rng.randint(vmin, vmax))
@@ -77,44 +77,44 @@ def n_in_gabor(shape, stride, padding, kernel_shape, num_in_layers, num_pi_divs)
            n_neurons_per_region(num_in_layers, num_pi_divs)
 
 
-def generate_input_vectors(num_vectors, dimension, on_probability, seed=1):
+def generate_input_vectors(num_vectors, dimension, on_probability, seed=config.SEED):
     n_active = int(on_probability * dimension)
-    np.random.seed(seed)
+    # np.random.seed(seed)
     # vecs = (np.random.uniform(0., 1., (num_vectors, dimension)) <= on_probability).astype('int')
     vecs = np.zeros((num_vectors, dimension))
     for i in range(num_vectors):
-        indices = np.random.choice(np.arange(dimension, dtype='int'), size=n_active, replace=False)
+        indices = config.RNG.choice(np.arange(dimension, dtype='int'), size=n_active, replace=False)
         vecs[i, indices] = 1.0
-    np.random.seed()
+    #np.random.seed()
     return vecs
 
 
 def generate_samples(input_vectors, num_samples, prob_noise, seed=1, method=None):
     """method='all' means randomly choose indices where we flip 1s and 0s with probability = prob_noise"""
-    np.random.seed(seed)
+    #np.random.seed(seed)
 
     samples = None
 
     for i in range(input_vectors.shape[0]):
         samp = np.tile(input_vectors[i, :], (num_samples, 1)).astype('int')
         if method == 'all':
-            dice = np.random.uniform(0., 1., samp.shape)
+            dice = config.RNG.uniform(0., 1., samp.shape)
             whr = np.where(dice < prob_noise)
             samp[whr] = 1 - samp[whr]
         elif method == 'exact':
             n_flips = int(np.mean(input_vectors.sum(axis=1)) * prob_noise)
             for j in range(num_samples):
                 # flip zeros to ones
-                indices = np.random.choice(np.where(samp[j] == 0)[0], size=n_flips, replace=False)
+                indices = config.RNG.choice(np.where(samp[j] == 0)[0], size=n_flips, replace=False)
                 samp[j, indices] = 1
 
                 # flip ones to zeros
-                indices = np.random.choice(np.where(samp[j] == 1)[0], size=n_flips, replace=False)
+                indices = config.RNG.choice(np.where(samp[j] == 1)[0], size=n_flips, replace=False)
                 samp[j, indices] = 0
         else:
             n_flips = int(np.mean(input_vectors.sum(axis=1)) * prob_noise) * 2
             for j in range(num_samples):
-                indices = np.random.choice(np.arange(input_vectors.shape[1]), size=n_flips, replace=False)
+                indices = config.RNG.choice(np.arange(input_vectors.shape[1]), size=n_flips, replace=False)
                 samp[j, indices] = 1 - samp[j, indices]
 
         if samples is None:
@@ -128,11 +128,11 @@ def generate_samples(input_vectors, num_samples, prob_noise, seed=1, method=None
 
 def samples_to_spike_times(samples, sample_dt, start_dt, max_rand_dt, seed=1,
                            randomize_samples=False):
-    np.random.seed(seed)
+    #np.random.seed(seed)
     t = 0
     spike_times = [[] for _ in range(samples.shape[-1])]
     if randomize_samples:
-        indices = np.random.choice(np.arange(samples.shape[0]), size=samples.shape[0],
+        indices = config.RNG.choice(np.arange(samples.shape[0]), size=samples.shape[0],
                                    replace=False)
     else:
         indices = np.arange(samples.shape[0])
@@ -140,15 +140,17 @@ def samples_to_spike_times(samples, sample_dt, start_dt, max_rand_dt, seed=1,
     for idx in indices:
         samp = samples[idx]
         active = np.where(samp == 1.)[0]
-        ts = t + start_dt + np.random.randint(-max_rand_dt, max_rand_dt + 1, size=active.size)
+        ts = t + start_dt + config.RNG.randint(-max_rand_dt, max_rand_dt + 1, size=active.size)
         for time_id, neuron_id in enumerate(active):
             if ts[time_id] not in spike_times[neuron_id]:
                 spike_times[neuron_id].append(ts[time_id])
 
         t += sample_dt
-    np.random.seed()
+    #np.random.seed()
     return indices, spike_times
 
+def gain_control_w(post_idx, w_max, n_cutoff=15):
+    return w_max / float(n_cutoff + 1.0 + post_idx)
 
 def gain_control_list(input_size, horn_size, max_w, cutoff=0.75):
     n_cutoff = 15  # int(cutoff*horn_size)
@@ -156,7 +158,7 @@ def gain_control_list(input_size, horn_size, max_w, cutoff=0.75):
     matrix[:, 0] = np.repeat(np.arange(input_size), horn_size)
     matrix[:, 1] = np.tile(np.arange(horn_size), input_size)
 
-    matrix[:, 2] = np.tile(max_w / (n_cutoff + 1.0 + np.arange(horn_size)), input_size)
+    matrix[:, 2] = np.tile(gain_control_w(max_w, np.arange(horn_size)), input_size)
 
     return matrix
 
@@ -216,13 +218,13 @@ def dist_conn_list(in_shapes, num_zones, out_size, radius, prob, weight, delay):
             # centre row in terms of in_shape
             pre_r = int( min(_radius + zr * 2 * _radius, height - 1) )
             # low and high limits for rows
-            row_l, row_h = int(max(0, pre_r - _radius)), int(min(height, pre_r + _radius))
+            row_l, row_h = int(max(0, pre_r - _radius)), int(min(height, pre_r + _radius + 1))
 
             for zc in range(ncols):
                 # centre column in terms of in_shape
                 pre_c = int( min(_radius + zc * 2 * _radius, width - 1) )
                 # low and high limits for columns
-                col_l, col_h = int(max(0, pre_c - _radius)), int(min(width, pre_c + _radius))
+                col_l, col_h = int(max(0, pre_c - _radius)), int(min(width, pre_c + _radius + 1))
 
                 # square grid of coordinates
                 cols, rows = np.meshgrid(np.arange(col_l, col_h,),
@@ -240,7 +242,7 @@ def dist_conn_list(in_shapes, num_zones, out_size, radius, prob, weight, delay):
 
                 # choose pre coords sets for each post neuron
                 for post in range(start_post, end_post):
-                    rand_indices = np.random.choice(rows.size, size=n_idx, replace=False).astype('int')
+                    rand_indices = config.RNG.choice(rows.size, size=n_idx, replace=False).astype('int')
                     # randomly selected coordinates
                     rand_r = rand_indices // rows.shape[1]
                     rand_c = rand_indices % rows.shape[1]
@@ -249,7 +251,7 @@ def dist_conn_list(in_shapes, num_zones, out_size, radius, prob, weight, delay):
                     pre_indices = rows[rand_r, rand_c] * width + cols[rand_r, rand_c]
                     for pre_i in pre_indices:
                         if pre_i < max_pre:
-                            w = np.clip(np.random.normal(weight, weight * 0.1), 0., np.inf)
+                            w = np.clip(config.RNG.normal(weight, weight * 0.1), 0., np.inf)
                             d = 1# np.round(np.random.uniform(delay, delay + 10.))
                             conns[pre_pop].append((pre_i, post, w, d))
                         else:
@@ -357,26 +359,27 @@ def output_connection_list(kenyon_size, decision_size, prob_active, active_weigh
         matrix[:, 1] = np.tile(np.arange(decision_size), n_pre)
     else:
         for i in range(0, n_conns, n_pre):
-            matrix[i:i + n_pre, 0] = np.random.randint(0, kenyon_size, size=n_pre)
+            matrix[i:i + n_pre, 0] = config.RNG.randint(0, kenyon_size, size=n_pre)
             matrix[i:i + n_pre, 1] = i // n_pre
 
-    np.random.seed(seed)
+    #np.random.seed(seed)
 
     inactive_weight = active_weight * inactive_scaling
-    scale = max(active_weight * 0.05, 0.00001)
-    matrix[:, 2] = np.random.normal(loc=inactive_weight, 
+    scale = max(active_weight * 0.1, 0.00001)
+    matrix[:, 2] = config.RNG.normal(loc=inactive_weight, 
                                     scale=scale,
                                     size=n_conns)
 
-    dice = np.random.uniform(0., 1., size=(n_conns))
+    dice = config.RNG.uniform(0., 1., size=(n_conns))
     active = np.where(dice <= prob_active)
     print(prob_active, len(active[0]), n_conns)
-    matrix[active, 2] = np.random.normal(loc=active_weight, 
+    scale *= 0.1
+    matrix[active, 2] = config.RNG.normal(loc=active_weight, 
                                          # scale=active_weight * 0.05,
                                          scale=scale,
                                          size=active[0].shape)
 
-    np.random.seed()
+    #np.random.seed()
 
     return matrix
 
@@ -443,7 +446,7 @@ def prob_conn_from_list(pre_post_pairs, n_per_post, probability, weight, delay, 
         pres = pre_post_pairs[np.where(pre_post_pairs[:, 1] == post_base)]
         for i in range(n_per_post):
             for pre in pres:
-                if np.random.uniform <= probability:
+                if config.RNG.uniform <= probability:
                     post = post_base * n_per_post + i
                     conns.append([pre, post, weight, delay])
                 else:
@@ -525,11 +528,17 @@ def split_to_inh_exc(conn_list, epsilon=float(1e-6)):
 
 
 def split_spikes(spikes, n_types):
-    spikes_out = [[] for _ in range(n_types)]
+    spikes_out = {k: [] for k in range(n_types)}
     n_per_type = spikes.shape[0] // n_types
     for type_idx in range(n_types):
         for nidx in range(n_per_type):
-            spikes_out[type_idx].append(spikes[type_idx * n_per_type + nidx])
+            arr = np.array(spikes[type_idx * n_per_type + nidx])
+            # if arr.size > 0:
+            #    print(arr)
+            spikes_out[type_idx].append(arr)
+
+        #print(len([1 for ts in spikes_out[type_idx] if ts.size > 0]))
+
     return spikes_out
 
 
@@ -545,11 +554,14 @@ def div_index(orig_index, orig_shape, divs):
 def reduce_spike_place(spikes, shape, divs):
     fshape = [shape[0] // divs[0] + int(shape[0] % divs[0] > 0),
               shape[1] // divs[1] + int(shape[1] % divs[1] > 0)]
-    fspikes = [[] for _ in range(fshape[0] * fshape[1])]
+    fspikes = [None for _ in range(fshape[0] * fshape[1])]
     for pre, times in enumerate(spikes):
         fpre = div_index(pre, shape, divs)
-        fspikes[fpre] += times
-        fspikes[fpre][:] = np.unique(sorted(fspikes[fpre]))
+        if fspikes[fpre] is None:
+            fspikes[fpre] = times
+        else:
+            fspikes[fpre] = np.append(fspikes[fpre], times)
+            fspikes[fpre][:] = np.unique(sorted(fspikes[fpre]))
 
     return fshape, fspikes
 
@@ -580,29 +592,34 @@ def append_spikes(source, added, dt):
     for i, times in enumerate(added):
         if len(times) == 0:
             continue
-        source[i][:] = sorted(source[i] + (np.array(times) + dt).tolist())
+        #print(type(source[i]), type(times)) 
+        source[i] = np.append(source[i], np.sort(times + dt))
     return source
 
 
 def add_noise(prob, spikes, start_t, end_t):
-    on_neurons = [i for i in range(len(spikes)) if len(spikes[i]) > 0]
 
     n_toggle = int(len(spikes) * prob)
-    n_toggle = int(len(on_neurons) * prob) if n_toggle >= len(on_neurons) else n_toggle
-
-    on_to_toggle = np.random.choice(on_neurons, size=n_toggle, replace=False)
-
+    #n_toggle = int(len(on_neurons) * prob) if n_toggle >= len(on_neurons) else n_toggle
+    on_neurons = np.arange(len(spikes))#[i for i in range(len(spikes)) if len(spikes[i]) > 0]
+    on_to_toggle = config.RNG.choice(on_neurons, size=n_toggle, replace=False)
     for tog in on_to_toggle:
-        spikes[tog][:] = []
+        # this is awful
+        spikes[tog] = np.array([])
 
-    off_neurons = [i for i in range(len(spikes)) if len(spikes[i]) == 0]
-    off_to_toggle = np.random.choice(off_neurons, size=n_toggle, replace=False)
+
+    off_neurons = np.arange(len(spikes))#[i for i in range(len(spikes)) if len(spikes[i]) == 0]
+    off_to_toggle = config.RNG.choice(off_neurons, size=n_toggle, replace=False)
     for tog in off_to_toggle:
-        spikes[tog][:] = [float(np.random.randint(start_t, end_t))]
+        spikes[tog] = config.RNG.randint(start_t, end_t, size=(1,))
+
 
     return spikes
 
 def split_ssa(ssa, n_steps, duration, round_times):
+    if n_steps == 1:
+        return {0.0: ssa}
+
     dt = duration // n_steps
     s = {}
     for loop, st in enumerate(np.arange(0, duration, dt)):
@@ -610,19 +627,25 @@ def split_ssa(ssa, n_steps, duration, round_times):
         sys.stdout.flush()
         et = st + dt
         s[st] = {}
-        for i in ssa:
-            s[st][i] = []
-            for times in ssa[i]:
+        for layer in ssa:
+            s[st][layer] = [] 
+            for times in ssa[layer]:
                 ts = np.asarray(times)
                 whr = np.where(np.logical_and(st <= ts, ts < et))
                 arr = np.round(ts[whr]) if round_times else ts[whr]
-                s[st][i].append(sorted(arr.tolist()))
+                s[st][layer].append(arr.tolist())
 
     sys.stdout.write("\n\n")
     sys.stdout.flush()
 
     return s
 
+def randomize_ssa(ssa, start_t, end_t, decimals):
+    return [np.around(
+                config.RNG.uniform(start_t, end_t, size=ts.shape), 
+                decimals=decimals) if ts.size > 0 else ts
+                    for ts in ssa]
+    
 def compress_spikes_list(spikes_list, start_t, end_t, randomize=True, period=10, decimals=0):
     sl = np.array(spikes_list)
     whr = np.where(np.logical_and(start_t <= sl, sl < end_t))[0]
@@ -631,7 +654,7 @@ def compress_spikes_list(spikes_list, start_t, end_t, randomize=True, period=10,
 
     if randomize:
         t = np.around(
-                np.random.uniform(start_t, start_t + period),
+                config.RNG.uniform(start_t, start_t + period),
                 decimals=decimals)
     else:
         t = np.around(

@@ -198,10 +198,10 @@ class OmniglotOptimizee(Optimizee):
         end_t = self.sim_params['duration']
         # start_t = end_t - n_class * n_test * dt
         start_t = analysis.get_test_start_t(data) 
-        avg_class_sample_distance = 0
-        avg_activity_error = (config.OUTPUT_SIZE - config.TARGET_ACTIVITY_PER_SAMPLE) ** 3
-        avg_sharing_class_error = n_class ** 3
-        avg_freq_error = (n_test * n_class - config.TARGET_FREQUENCY_PER_OUTPUT_NEURON) ** 3
+        avg_class_sample_distance = -config.INF
+        avg_activity_error = -config.INF #(config.OUTPUT_SIZE - config.TARGET_ACTIVITY_PER_SAMPLE) ** 3
+        avg_sharing_class_error = -config.INF #n_class ** 3
+        avg_freq_error = -config.INF #(n_test * n_class - config.TARGET_FREQUENCY_PER_OUTPUT_NEURON) ** 3
         act_per_samp = []
         if not data['died']:
             ### Analyze results
@@ -268,10 +268,10 @@ class OmniglotOptimizee(Optimizee):
         
             
             avg_activity_error = analysis.mean_error_sample_target_activity(
-                config.TARGET_ACTIVITY_PER_SAMPLE, act_per_samp, power=2)
+                config.TARGET_ACTIVITY_PER_SAMPLE, act_per_samp, power=1)
 
             avg_sharing_class_error = analysis.mean_neurons_sharing_class(
-                _labels, _spikes, start_t, dt) ** 2
+                _labels, _spikes, start_t, dt, power=4) 
 
             avg_freq_error = analysis.mean_target_frequency_error(
                 config.TARGET_FREQUENCY_PER_OUTPUT_NEURON, _spikes, power=2) 

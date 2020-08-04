@@ -86,36 +86,39 @@ class MySTDPMechanism(synapses.STDPMechanism, GeNNStandardSynapseType):
             self.wum_defs["post_spike_code"] = self.timing_dependence.post_spike_code
 
 
-# class MyWeightDependence(synapses.MultiplicativeWeightDependence, WeightDependence):
-#     __doc__ = synapses.MultiplicativeWeightDependence.__doc__
+#class MyWeightDependence(synapses.MultiplicativeWeightDependence, WeightDependence):
+#    __doc__ = synapses.MultiplicativeWeightDependence.__doc__
 #
-#     depression_update_code = """
-#         std::cout << "weight [" << $(Wmin) << ", " << $(Wmax) << "] before = " << $(g) << " update = " << update ;
-#         if(update <= 0){
-#             $(g) += ($(g) - $(Wmin)) * update;
-#         }else{
-#             $(g) += ($(Wmax) - $(g)) * update;
-#         }
-#         std::cout << " after = " << $(g);
+#    depression_update_code = """
+#        if(update <= 0){
+#            $(g) += ($(g) - $(Wmin)) * update;
+#        }else{
+#            $(g) += ($(Wmax) - $(g)) * update;
+#        }
+#        $(g) = fmin( fmax($(Wmin), $(g)) , $(Wmax));
+#    """
 #
-#         $(g) = fmin(fmax($(Wmin), $(g)), $(Wmax));
+#    potentiation_update_code = depression_update_code
 #
-#         std::cout << " final = " << $(g) << std::endl;
-#     """
-#
-#     potentiation_update_code = depression_update_code
-#
-#     translations = build_translations(*WeightDependence.wd_translations)
+#    translations = build_translations(*WeightDependence.wd_translations)
 
 
 class MyWeightDependence(synapses.AdditiveWeightDependence, WeightDependence):
     __doc__ = synapses.AdditiveWeightDependence.__doc__
-
     depression_update_code = "$(g) = fmin($(Wmax), fmax($(Wmin), $(g) + (($(Wmax) - $(Wmin)) * update)));\n"
-
     potentiation_update_code = depression_update_code
 
     translations = build_translations(*WeightDependence.wd_translations)
+
+
+# class MyWeightDependence(synapses.AdditiveWeightDependence, WeightDependence):
+#     __doc__ = synapses.AdditiveWeightDependence.__doc__
+#
+#     depression_update_code = "$(g) = fmin($(Wmax), fmax($(Wmin), $(g) + (($(Wmax) - $(Wmin)) * update)));\n"
+#
+#     potentiation_update_code = "$(g) = fmin($(Wmax), fmax($(Wmin), $(g) + (($(Wmax) - $(Wmin)) * update)));\n"
+#
+#     translations = build_translations(*WeightDependence.wd_translations)
 
 class MyTemporalDependence(synapses.STDPTimingDependence):
     # __doc__ = synapses.SpikePairRule.__doc__

@@ -102,7 +102,7 @@ class Decoder(object):
                     from omnigloter import cuda_utils
 #                    np.random.seed(None)
 #                    GPU_ID = np.random.randint(0, 4)
-                    time.sleep(np.random.randint(1, 5))
+                    time.sleep(config.RNG.randint(1, 5))
                     GPU_ID = cuda_utils.pick_gpu_lowest_memory()
                 
                 print("\n{}\n\nchosen gpu id = {}\n".format(
@@ -135,6 +135,10 @@ class Decoder(object):
 
         logging.info("\tPopulations: Mushroom Inhibitory")
         pops['inh_mushroom'] = self.inh_mushroom_population(params)
+        #pops['noise_mushroom'] = self.noise_mushroom_population(params)
+
+        logging.info("\tPopulations: Gain Control")
+        pops['gain_control'] = self.gain_control_population(params)
 
         logging.info("\tPopulations: Output")
         pops['output'] = self.output_population(params)
@@ -159,11 +163,16 @@ class Decoder(object):
             logging.info("\tProjections: Input to Mushroom")
             projs['input to mushroom'] = self.input_to_mushroom(params)
 
+        logging.info("\tProjections: In to GainControl")
+        projs['in to gain'] = self.input_to_gain(params)
+        projs['gain to mushroom'] = self.gain_to_mushroom(params)
+
         logging.info("\tProjections: Mushroom to Output")
         projs['mushroom to output'] = self.mushroom_to_output(params)
 
         logging.info("\tProjections: Mushroom sWTA")
         projs['wta_mushroom'] = self.wta_mushroom(params)
+        #projs['noise to mushroom'] = self.noise_to_mushroom(params)
 
         logging.info("\tProjections: Output sWTA")
         projs['wta_output'] = self.wta_output(params)
@@ -250,7 +259,7 @@ class Decoder(object):
         t_creation_start = time.time()
         tmp = {}
         labels = []
-        spikes = {i: None for i in range(nlayers)}
+        spikes = {i: [] for i in range(nlayers)}
         shapes = {i: None for i in range(nlayers)}
         
         dt = params['sim']['sample_dt']
@@ -264,29 +273,53 @@ class Decoder(object):
                 labels.append(spk['label'].item())
                 tmp.clear()
                 tmp = utils.split_spikes(
-                        utils.compress_spikes_array(
+                        #utils.compress_spikes_array(
                             spk['spike_source_array'],
-                            start_t=0, end_t=500.,
-                            randomize=False,
-                            period=dt//3,
-                            decimals=0),
+                        #    start_t=0, end_t=10.,
+                        #    randomize=False,
+                        #    period=dt//3,
+                        #    decimals=0),
                         nlayers)
 
                 for tidx in range(nlayers):
                     # divs = (1, 1) if tidx < 2 else params['sim']['input_divs']
                     divs = all_divs[tidx]
+                    # print(len([1 for ts in tmp[tidx] if ts.size > 0]))
                     shape, tmp[tidx][:] = utils.reduce_spike_place(tmp[tidx], in_shape, divs)
+                    # print(len([1 for ts in tmp[tidx] if ts.size > 0]))
                     if shapes[tidx] is None:
                         shapes[tidx] = shape
 
-                    tmp[tidx][:] = utils.add_noise(prob_noise, tmp[tidx], dt_idx*dt, dt_idx*dt + dt*0.5)
-                    if spikes[tidx] is None:
-                        spikes[tidx] = tmp[tidx]
+                    # print(len([1 for ts in tmp[tidx] if ts.size > 0]))
+                    tmp[tidx][:] = utils.randomize_ssa(tmp[tidx], 1., 1. + dt*0.2, decimals=0)
+                    # print(len([1 for ts in tmp[tidx] if ts.size > 0]))
+                    tmp[tidx][:] = utils.add_noise(prob_noise, tmp[tidx], 0., dt*0.5)
+                    # print(len([1 for ts in tmp[tidx] if ts.size > 0]))
+                    if len(spikes[tidx]) == 0:
+                        # print('first spikes set')
+                        # print(tmp[tidx])
+                        spikes[tidx][:] = tmp[tidx]
+                        # print(np.mean([len(ts) for ts in spikes[tidx][:]]))
                     else:
+                        # print(np.mean([len(ts) for ts in spikes[tidx][:] ]))
                         spikes[tidx][:] = utils.append_spikes(spikes[tidx], tmp[tidx], dt_idx*dt)
+                        # print(np.mean([len(ts) for ts in spikes[tidx][:] ]))
+
+                        no_small = 0
+                        for ts in spikes[tidx]:
+                            whr = np.where(np.asarray(ts) < dt)[0]
+                            if len(whr) == 0:
+                                no_small += 1
+                            else:
+                                break
+                        # print("no small ", no_small == len(spikes[tidx]))
+                        if no_small == len(spikes[tidx]):
+                            print(i, dt_idx)
+                            sys.exit()
 
             dt_idx += 1
-            sys.stdout.write("\r\t\tTrain %06.2f%%"%(100.0 * dt_idx / total_fs))
+            sys.stdout.write("\r\t\tTrain %s -> %s %06.2f%%"%(
+                dt_idx*dt, dt_idx * dt + dt * 0.5, 100.0 * dt_idx / total_fs))
             sys.stdout.flush()
 
 
@@ -306,25 +339,27 @@ class Decoder(object):
                 labels.append(spk['label'].item())
                 tmp.clear()
                 tmp = utils.split_spikes(
-                        utils.compress_spikes_array(
+        #                utils.compress_spikes_array(
                             spk['spike_source_array'],
-                            start_t=0, end_t=500.,
-                            randomize=False,
-                            period=dt//3,
-                            decimals=0),
+        #                    start_t=0, end_t=500.,
+        #                    randomize=False,
+        #                    period=dt//3,
+        #                    decimals=0),
                         nlayers)
 
                 for tidx in range(nlayers):
                     # divs = (1, 1) if tidx < 2 else params['sim']['input_divs']
                     divs = all_divs[tidx]
                     shape, tmp[tidx][:] = utils.reduce_spike_place(tmp[tidx], in_shape, divs)
-                    if shapes[tidx] is None:
-                        shapes[tidx] = shape
+                    #if shapes[tidx] is None:
+                    #    shapes[tidx] = shape
 
-                    if spikes[tidx] is None:
-                        spikes[tidx] = tmp[tidx]
-                    else:
-                        spikes[tidx][:] = utils.append_spikes(spikes[tidx], tmp[tidx], dt_idx*dt)
+                    tmp[tidx][:] = utils.randomize_ssa(tmp[tidx], 1., 1. + dt*0.2, decimals=0)
+                    tmp[tidx][:] = utils.add_noise(prob_noise, tmp[tidx], 0., dt*0.5)
+                    #if spikes[tidx] is None:
+                    #    spikes[tidx] = tmp[tidx]
+                    #else:
+                    spikes[tidx][:] = utils.append_spikes(spikes[tidx], tmp[tidx], dt_idx*dt)
 
             dt_idx += 1
             sys.stdout.write("\r\t\tTest %06.2f%%"%(100.0 * dt_idx / total_fs))
@@ -394,25 +429,34 @@ class Decoder(object):
 
         return _shapes, gs
 
+
+    def gain_control_population(self, params=None):
+        k = 'gain_control'
+        if 'populations' in self._network and k in self._network['populations']:
+            return self._network['populations'][k]
+
+        size = config.GAIN_CONTROL_SIZE
+        params = config.GAIN_CONTROL_PARAMS
+        neuron_type = sim.IF_curr_exp
+        pop = {}
+        for i in range(size):
+            p = sim.Population(1, neuron_type, params, label='gain_control')
+            if k in config.RECORD_SPIKES:
+                p.record('spikes')
+            pop[i] = p
+
+        return pop
+
     def mushroom_population(self, params=None):
         if 'populations' in self._network and 'mushroom' in self._network['populations']:
             return self._network['populations']['mushroom']
 
         count = self.mushroom_size(params)
-        radius = params['ind']['conn_dist']
-        shapes = self.in_shapes
-        divs = params['sim']['input_divs']
-        nz = self.num_zones_mushroom(shapes, radius, divs)
-
 
         sys.stdout.write("\tMushroom size: {}\n".format(count))
         sys.stdout.flush()
         neuron_type = getattr(__neuron__, config.MUSHROOM_CLASS)
-        total_zones = nz['total']
-        # del nz['total']
-        pops = []
-        n_neurons = int(count // total_zones)
-        p = sim.Population(n_neurons, neuron_type, config.MUSHROOM_PARAMS,
+        p = sim.Population(count, neuron_type, config.MUSHROOM_PARAMS,
                            label='mushroom')
 
         if 'mushroom' in config.RECORD_SPIKES:
@@ -466,6 +510,24 @@ class Decoder(object):
 
         return nz
 
+    def noise_mushroom_population(self, params=None):
+        if ('populations' in self._network and
+                'noise_mushroom' in self._network['populations']):
+            return self._network['populations']['noise_mushroom']
+
+        count = config.NOISE_MUSHROOM_SIZE
+
+        rate = config.NOISE_MUSHROOM_RATE
+
+        p = sim.Population(count,
+                sim.SpikeSourcePoisson,
+                {'rate': rate},
+                label='noise mushroom')
+
+        #if 'mushroom' in config.RECORD_SPIKES:
+        #    p.record('spikes')
+
+        return p
 
 
     def inh_mushroom_population(self, params=None):
@@ -488,7 +550,7 @@ class Decoder(object):
         shapes = self.in_shapes
         divs = params['sim']['input_divs']
         nz = self.num_zones_mushroom(shapes, radius, divs)
-        count = int(nz['total'])
+        count = int(nz['total']) + 1
         neuron_type = getattr(sim, config.INH_MUSHROOM_CLASS)
         p = sim.Population(count, neuron_type, config.INH_MUSHROOM_PARAMS,
                            label='inh_mushroom')
@@ -625,38 +687,51 @@ class Decoder(object):
         post = self.mushroom_population()
         prob = params['ind']['exp_prob']
         weight = params['ind']['mushroom_weight']
-        delay = 1
+        delay = 4. if config.TIMESTEP == 1. else 1.
         radius = np.copy(params['ind']['conn_dist'])
         shapes = self.in_shapes
         divs = params['sim']['input_divs']
         nz = self.num_zones_mushroom(shapes, radius, divs)
-        n_post = int(post.size // nz['total'])
-        # if config.ONE_TO_ONE_EXCEPTION == True:
-        #     conns = utils.o2o_conn_list(shapes, nz, post.size, radius, prob, weight, delay)
-        # else:
-        #     conns = utils.dist_conn_list(shapes, nz, post.size, radius, prob, weight, delay)
+        if config.ONE_TO_ONE_EXCEPTION == True:
+            conns = utils.o2o_conn_list(shapes, nz, post.size, radius, prob, weight, delay)
+        else:
+            conns = utils.dist_conn_list(shapes, nz, post.size, radius, prob, weight, delay)
 
-        # self._in_to_mush_conns = conns
+        self._in_to_mush_conns = conns
         projs = {}
 
         for k, pre in self.input_populations().items():
-            ps_k = []
-            for r in range(nz[k][utils.ROWS]):
-                ps_r = []
-                for c in range(nz[k][utils.COLS]):
-                    pre_indices = utils.get_pre_indices_dist(shapes[k], r, c, radius)
-                    start_post = (r * len(nz[k]) + c) * n_post
-                    end_post = min(post.size, start_post + n_post)
-                    p = sim.Projection(pre[pre_indices], post[start_post:end_post],
-                                sim.FixedProbabilityConnector(prob),
-                                synapse_type=sim.StaticSynapse(weight=weight),
-                                label='input to mushroom - {} ({}, {})'.format(k, r, c),
-                                receptor_type='excitatory')
-                    ps_r.append(p)
-                ps_k.append(ps_r)
+            if len(conns[k]):
+                projs[k] = sim.Projection(pre, post,
+                            sim.FromListConnector(conns[k]),
+                            label='input to mushroom - {}'.format(k),
+                            receptor_type='excitatory')
+            else:
+                projs[k] = None
 
-            projs[k] = ps_k
         return projs
+
+
+    def noise_to_mushroom(self, params=None):
+        if ('projections' in self._network and
+            'noise to mushroom' in self._network['projections']):
+            return self._network['projections']['noise to mushroom']
+
+        pre = self.noise_mushroom_population()
+        post = self.mushroom_population()
+        w = config.NOISE_MUSHROOM_WEIGHT
+        prob = config.NOISE_MUSHROOM_PROB
+
+        p = sim.Projection(pre, post,
+                sim.FixedProbabilityConnector(prob),
+                sim.StaticSynapse(weight=w),
+                label='noise to mushroom',
+                receptor_type='excitatory',
+                use_procedural=config.USE_PROCEDURAL,
+                num_threads_per_spike=16)
+
+        return p
+
 
     def wta_gabor(self, params=None):
         if 'projections' in self._network and 'wta_gabor' in self._network['projections']:
@@ -677,7 +752,9 @@ class Decoder(object):
                                 sim.AllToAllConnector(),
                                 sim.StaticSynapse(weight=iw, delay=config.TIMESTEP),
                                label='wta gabor {}{}{}'.format(lyr, r, c),
-                                receptor_type='inhibitory')
+                                receptor_type='inhibitory',
+                                use_procedural=config.USE_PROCEDURAL,
+                                num_threads_per_spike=16)
                 lyrdict[r] = rdict
             projs[lyr] = lyrdict
 
@@ -691,8 +768,9 @@ class Decoder(object):
         prjs = {}
         exc = self.mushroom_population()
         inh = self.inh_mushroom_population()
+        print('inh size ', inh.size)
         exp_size = params['ind']['expand']
-        ew = config.EXCITATORY_WEIGHT['mushroom'] / exp_size
+        ew = config.EXCITATORY_WEIGHT['mushroom']# / exp_size
         iw = config.INHIBITORY_WEIGHT['mushroom']
         delay = config.TIMESTEP
         radius = params['ind']['conn_dist']
@@ -700,59 +778,122 @@ class Decoder(object):
         divs = params['sim']['input_divs']
         nz = self.num_zones_mushroom(shapes, radius, divs)
         n_post = int( exc.size // nz['total'] )
+        d = config.TIMESTEP
+#        pe = []
+#        pi = []
+#        for i, p_start in enumerate(range(0, exc.size, n_post)):
+#            p_end = min(exc.size, p_start + n_post)
+#            print(p_start, p_end, i)
+#            p = sim.Projection(exc[p_start:p_end], inh[i:i+1],
+#                        sim.AllToAllConnector(),
+#                        sim.StaticSynapse(weight=ew, delay=d),
+#                        label='mushroom to mushroom exc',
+#                        receptor_type='excitatory')
+#            pe.append(p)
+#
+#            p = sim.Projection(inh[i:i+1], exc[p_start:p_end],
+#                        sim.AllToAllConnector(),
+#                        sim.StaticSynapse(weight=ew, delay=d),
+#                        label='mushroom to mushroom inh',
+#                        receptor_type='inhibitory')
+#            pi.append(p)
+#
+#        prjs['e to i'] = pe
+#        prjs['i to e'] = pi
+
         # e2e_inh_conn = utils.wta_mush_conn_list_a2a(shapes, nz, exc.size, iw, config.TIMESTEP)
         # prjs['e to i'] = sim.Projection(exc, exc,
         #                     sim.FromListConnector(e2e_inh_conn),
         #                     label='mushroom to mushroom inh',
         #                     receptor_type='inhibitory')
-        d = config.TIMESTEP
-        ps = []
-        for p_start in range(0, exc.size, n_post):
-            p_end = min(exc.size, p_start + n_post)
-            p = sim.Projection(exc[p_start:p_end], exc[p_start:p_end],
-                        sim.AllToAllConnector(),
-                        sim.StaticSynapse(weight=iw, delay=d),
-                        label='mushroom to mushroom inh',
-                        receptor_type='inhibitory')
 
-            # icon, econ = utils.wta_mush_conn_list(shapes, nz, exc.size, iw, ew, config.TIMESTEP)
-            # i_idx = r * len(row) + c
-            # prjs['e to i'] = sim.Projection(e_pop, inh[i_idx],
-            #                     sim.AllToAllConnector(),
-            #                     sim.StaticSynapse(weight=ew, delay=d),
-            #                     label='mushroom to inh_mushroom ({}, {})'.format(r, c),
-            #                     receptor_type='excitatory')
-            #
-            # prjs['i to e'] = sim.Projection(inh[i_idx], e_pop,
-            #                     sim.AllToAllConnector(),
-            #                     sim.StaticSynapse(weight=iw, delay=d),
-            #                     label='inh_mushroom to mushroom ({}, {})'.format(r, c),
-            #                     receptor_type='inhibitory')
 
-            # prjs['e to i'] = sim.Projection(exc, inh,
-            #                     sim.AllToAllConnector(),
-            #                     sim.StaticSynapse(weight=ew, delay=TIMESTEP),
-            #                     label='mushroom to inh_mushroom',
-            #                     receptor_type='excitatory')
-            #
-            # prjs['i to e'] = sim.Projection(inh, exc,
-            #                     sim.AllToAllConnector(),
-            #                     sim.StaticSynapse(weight=INHIBITORY_WEIGHT['mushroom'],
-            #                                       delay=TIMESTEP),
-            #                     label='inh_mushroom to mushroom',
-            #                     receptor_type='inhibitory')
-            start_post = (r * len(nz[k]) + c) * n_post
-            end_post = min(post.size, start_post + n_post)
+        icon, econ = utils.wta_mush_conn_list(shapes, nz, exc.size, iw, ew, config.TIMESTEP)
+        prjs['e to i'] = sim.Projection(exc, inh,
+                            sim.FromListConnector(econ),
+                            label='mushroom to inh_mushroom',
+                            receptor_type='excitatory')
 
-            p = sim.Projection(e_pop, e_pop,
-                    # sim.FixedProbabilityConnector(MUSH_SELF_PROB),
-                    sim.AllToAllConnector(),
-                    sim.StaticSynapse(weight=iw, delay=d),
-                    label='inh_mushroom to mushroom',
-        receptor_type='inhibitory')
-        prjs['e to e'] = ps
+        prjs['i to e'] = sim.Projection(inh, exc,
+                            sim.FromListConnector(icon),
+                            label='inh_mushroom to mushroom',
+                            receptor_type='inhibitory')
+
+        # prjs['e to i'] = sim.Projection(exc, inh,
+        #                     sim.AllToAllConnector(),
+        #                     sim.StaticSynapse(weight=ew, delay=config.TIMESTEP),
+        #                     label='mushroom to inh_mushroom',
+        #                     receptor_type='excitatory')
+        #
+        # prjs['i to e'] = sim.Projection(inh, exc,
+        #                     sim.AllToAllConnector(),
+        #                     sim.StaticSynapse(weight=config.INHIBITORY_WEIGHT['mushroom'],
+        #                                       delay=config.TIMESTEP),
+        #                     label='inh_mushroom to mushroom',
+        #                     receptor_type='inhibitory')
+
+        # prjs['e to e'] = sim.Projection(exc, exc,
+        #                     sim.FixedProbabilityConnector(MUSH_SELF_PROB),
+        #                     sim.StaticSynapse(weight=config.INHIBITORY_WEIGHT['mushroom'],
+        #                                       delay=config.TIMESTEP),
+        #                     label='inh_mushroom to mushroom',
+        #                     receptor_type='inhibitory')
+
         return prjs
 
+    def input_to_gain(self, params=None):
+        if 'projections' in self._network and 'in to gain' in self._network['projections']:
+            return self._network['projections']['in to gain']
+
+        pres = self.input_populations()
+        posts = self.gain_control_population()
+        w_min = config.GAIN_CONTROL_MIN_W
+        w_max = config.GAIN_CONTROL_MAX_W
+        cutoff = config.GAIN_CONTROL_CUTOFF
+        ps = {}
+        conns = {}
+        for lyr in pres:
+            pre = pres[lyr]
+            projs = {}
+            for p in posts:
+
+                # conn_list = utils.gain_control_list(pre.size, post.size, w_max, cutoff)
+                w = utils.gain_control_w(p, w_max, cutoff)
+                post = posts[p]
+                pj = sim.Projection(pre, post,
+                            sim.AllToAllConnector(),
+                            sim.StaticSynapse(weight=w),
+                            label='in {} to gain {}'.format(lyr, p),
+                            receptor_type='excitatory',
+                            use_procedural=config.USE_PROCEDURAL,
+                            num_threads_per_spike=16)
+                projs[p] = pj
+            conns[lyr] = projs
+        # np.savez_compressed('in_to_gain.npz', conns=conns)
+        return conns
+
+
+    def gain_to_mushroom(self, params=None):
+        if 'projections' in self._network and 'gain to mushroom' in self._network['projections']:
+            return self._network['projections']['gain to mushroom']
+
+        wi = config.GAIN_CONTROL_INH_W
+        pres = self.gain_control_population()
+        post = self.mushroom_population()
+
+        prj = {}
+        for p in pres:
+            pre = pres[p]
+            pj = sim.Projection(pre, post,
+                    sim.AllToAllConnector(),
+                    sim.StaticSynapse(weight=wi),
+                    receptor_type='inhibitory',
+                    label='gain to mush inh',
+                    use_procedural=config.USE_PROCEDURAL,
+                    num_threads_per_spike=16)
+            prj[p] = pj
+
+        return prj
 
     def mushroom_to_output(self, params=None):
         if 'projections' in self._network and 'mushroom to output' in self._network['projections']:
@@ -764,10 +905,15 @@ class Decoder(object):
         prob = ind_par['out_prob']
         exp_size = params['ind']['expand']
         max_w = ind_par['out_weight'] #/ exp_size
-
+        # min_w = ind_par['w_min_mult']
+        min_w = 0.#-ind_par['out_weight']
         conn_list = utils.output_connection_list(pre.size, post.size, prob,
-                                                 max_w, 0.1, max_pre=1000# , seed=123
+                                                 max_w, 0.1, max_pre=config.MAX_PRE_OUTPUT# ,
+                                                 #seed=config.SEED,
                                                 )
+        #make sure we initialize everything as excitatory weights
+        conn_list[:, 2] = np.clip(conn_list[:, 2], 0., max_w*ind_par['w_max_mult'])
+
         if config.SAVE_INITIAL_WEIGHTS:
             self.initial_weights = conn_list
 
@@ -775,7 +921,7 @@ class Decoder(object):
                                                 for k in config.TIME_DEP_VARS}
 #         print("time deps ", tdeps)
         tdep = getattr(__stdp__, config.TIME_DEP)(**tdeps)
-        wdep = getattr(__stdp__, config.WEIGHT_DEP)(ind_par['w_min_mult'], ind_par['w_max_mult']*max_w)
+        wdep = getattr(__stdp__, config.WEIGHT_DEP)(min_w, ind_par['w_max_mult']*max_w)
         stdp = getattr(__stdp__, config.STDP_MECH)(timing_dependence=tdep, weight_dependence=wdep)
 
         p = sim.Projection(pre, post, sim.FromListConnector(conn_list), stdp,
@@ -796,24 +942,26 @@ class Decoder(object):
         inh = self.inh_output_population()
         ew = config.EXCITATORY_WEIGHT['output']
 
-        prjs['e to i'] = sim.Projection(exc, inh,
-                            sim.AllToAllConnector(),
-                            sim.StaticSynapse(weight=ew, delay=config.TIMESTEP),
-                            label='output to inh_output',
-                            receptor_type='excitatory')
+        #prjs['e to i'] = sim.Projection(exc, inh,
+        #                    sim.AllToAllConnector(),
+        #                    sim.StaticSynapse(weight=ew, delay=config.TIMESTEP),
+        #                    label='output to inh_output',
+        #                    receptor_type='excitatory')
 
-        prjs['i to e'] = sim.Projection(inh, exc,
-                            sim.AllToAllConnector(),
-                            sim.StaticSynapse(weight=config.INHIBITORY_WEIGHT['output'], delay=config.TIMESTEP),
-                            label='inh_output to output',
-                            receptor_type='inhibitory')
+        #prjs['i to e'] = sim.Projection(inh, exc,
+        #                    sim.AllToAllConnector(),
+        #                    sim.StaticSynapse(weight=config.INHIBITORY_WEIGHT['output'], delay=config.TIMESTEP),
+        #                    label='inh_output to output',
+        #                    receptor_type='inhibitory')
 
-        # prjs['i to e'] = sim.Projection(exc, exc,
-        #                     sim.AllToAllConnector(),
-        #                     sim.StaticSynapse(weight=INHIBITORY_WEIGHT['output'],
-        #                                       delay=TIMESTEP),
-        #                     label='wta - output to output',
-        #                     receptor_type='inhibitory')
+        prjs['i to e'] = sim.Projection(exc, exc,
+                             sim.AllToAllConnector(),
+                             sim.StaticSynapse(weight=config.INHIBITORY_WEIGHT['output'],
+                                               delay=config.TIMESTEP),
+                             label='wta - output to output',
+                             receptor_type='inhibitory',
+                             use_procedural=config.USE_PROCEDURAL,
+                             num_threads_per_spike=16)
 
         return prjs
 
@@ -822,6 +970,11 @@ class Decoder(object):
         data = {}
         if layer == 'input':
             pops = self.input_populations()
+            for i in pops:
+                data[i] = grab_data(pops[i])
+
+        elif layer == 'gain_control':
+            pops = self.gain_control_population()
             for i in pops:
                 data[i] = grab_data(pops[i])
 
@@ -835,6 +988,7 @@ class Decoder(object):
                         rdict[c] = grab_data(pops[i][r][c])
                     idict[r] = rdict
                 data[i] = idict
+
         else:
             data[0] = grab_data(self._network['populations'][layer])
 

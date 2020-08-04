@@ -143,33 +143,33 @@ plt.savefig(os.path.join(base_dir, fname))
 #####################################################################
 #####################################################################
 
-print('plotting histograms')
-kmin = int(np.min( list(fitnesses.keys()) ))
-n_ind = len(fitnesses[kmin])
-epochs = len(fitnesses)
-ncols = 3
-nrows =  epochs//ncols + int(epochs % ncols > 0)
-fw = 5
-fig = plt.figure(figsize=(fw*ncols, fw*nrows))
-plt.suptitle("Fitness histogram per generation\n")
-for g in gkeys:
+#print('plotting histograms')
+#kmin = int(np.min( list(fitnesses.keys()) ))
+#n_ind = len(fitnesses[kmin])
+#epochs = len(fitnesses)
+#ncols = 3
+#nrows =  epochs//ncols + int(epochs % ncols > 0)
+#fw = 5
+#fig = plt.figure(figsize=(fw*ncols, fw*nrows))
+#plt.suptitle("Fitness histogram per generation\n")
+#for g in gkeys:
 #     if len(fitnesses[g]) < n_ind:
 #         continue
-    ax = plt.subplot(nrows, ncols, g+1)
-    ax.set_title("Gen %d   n_ind %d"%(g+1, len(fitnesses[g])))
-    plt.hist(fitnesses[g], bins=20)
+#    ax = plt.subplot(nrows, ncols, g+1)
+#    ax.set_title("Gen %d   n_ind %d"%(g+1, len(fitnesses[g])))
+#    plt.hist(fitnesses[g], bins=20)
 #     ax.set_xticks(np.arange(0, total+11, 10))
-ax.margins(0.1)
-plt.tight_layout()
-fname = "{}_histogram_per_gen_{}.pdf".format(PREFIX, TIME_SUFFIX )
-plt.savefig(os.path.join(base_dir, fname))
+#ax.margins(0.1)
+#plt.tight_layout()
+#fname = "{}_histogram_per_gen_{}.pdf".format(PREFIX, TIME_SUFFIX )
+#plt.savefig(os.path.join(base_dir, fname))
 
 #####################################################################
 #####################################################################
 #####################################################################
 print('plotting parameter pairs')
 print("len(all_scores) = {}".format(len(all_scores)))
-scores = np.clip(np.asarray(all_scores), -196., np.inf)
+scores = np.clip(np.asarray(all_scores), -50., np.inf)
 argsort = np.argsort(scores)
 
 n_params = len(pkeys)
