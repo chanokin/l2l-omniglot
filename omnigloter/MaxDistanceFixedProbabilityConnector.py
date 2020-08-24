@@ -47,22 +47,6 @@ class MaxDistanceFixedProbabilityConnector(DistanceDependentProbabilityConnector
             return self._generate_init_snippet()
 
     def _generate_init_snippet(self):
-        def _max_row_len(num_pre, num_post, pars):
-            max_d = (2.0 * pars[1] + 1.0)
-            max_conns = 1.0
-
-            if pars[11] > 1:
-                max_conns *= min(max_d / pars[17], pars[11])
-
-            if pars[12] > 1:
-                max_conns *= min(max_d / pars[18], pars[12])
-
-            if pars[13] > 1:
-                max_conns *= min(max_d / pars[19], pars[13])
-
-            return int(binom.ppf(0.9999 ** (1.0 / num_pre),
-                       n=max_conns, p=pars[0]))
-
         def _max_col_len(num_pre, num_post, pars):
             max_d = (2.0 * pars[1] + 1.0)
             max_conns = 1.0
@@ -76,8 +60,30 @@ class MaxDistanceFixedProbabilityConnector(DistanceDependentProbabilityConnector
             if pars[4] > 1:
                 max_conns *= min(max_d / pars[10], pars[4])
 
-            return int(binom.ppf(0.9999 ** (1.0 / num_post),
-                       n=max_conns, p=pars[0]))
+
+            if pars[0] > 0.95:
+                return int(max_conns)
+            else:
+                return int(binom.ppf(0.9999 ** (1.0 / num_post),
+                           n=max_conns, p=pars[0]))
+
+        def _max_row_len(num_pre, num_post, pars):
+            max_d = (2.0 * pars[1] + 1.0)
+            max_conns = 1.0
+            if pars[11] > 1:
+                max_conns *= min(max_d / pars[17], pars[11])
+
+            if pars[12] > 1:
+                max_conns *= min(max_d / pars[18], pars[12])
+
+            if pars[13] > 1:
+                max_conns *= min(max_d / pars[19], pars[13])
+
+            if pars[0] > 0.95:
+                return int(max_conns)
+            else:
+                return int(binom.ppf(0.9999 ** (1.0 / num_pre),
+                           n=max_conns, p=pars[0]))
 
         _param_space = self._conn_init_params
         shp = self.shapes
@@ -102,13 +108,13 @@ class MaxDistanceFixedProbabilityConnector(DistanceDependentProbabilityConnector
             ("preRow", "int",
              "($(id_pre) / {}) * $(pre_dy) + $(pre_y0)".format(pre_per_row)),
             ("prevJ", "int",
-             "max(-1,\n"
-             "    (int)( ((preRow - $(post_y0)) / $(post_dy)) * {} - {} - 1 )\n"
+             "fmax(-1.0f,\n"
+             "    (float)( ((preRow - $(post_y0)) / $(post_dy)) * {} - {} - 1 )\n"
              ")".format(post_per_row, delta_row)),
             ("endJ", "int",
-             "min({}, \n"
-             "    (int)( ((preRow - $(post_y0)) / $(post_dy)) * {} + {} + 1 )\n"
-             ")".format(n_post, post_per_row, delta_row)),
+             "fmin({}f, \n"
+             "    (float)( ((preRow - $(post_y0)) / $(post_dy)) * {} + {} + 1 )\n"
+             ")".format(float(n_post), post_per_row, delta_row)),
         ]
         derived = [
             ("probLogRecip",
@@ -118,6 +124,7 @@ class MaxDistanceFixedProbabilityConnector(DistanceDependentProbabilityConnector
         ]
 
         _code = """
+            #ifndef toCoords
             #define toCoords(idx, nx, ny, nz, x, y, z) { \\
                 int a = (int)(nx * nz);                  \\
                 int inz = (int)nz;                       \\
@@ -125,29 +132,43 @@ class MaxDistanceFixedProbabilityConnector(DistanceDependentProbabilityConnector
                 x = (float)((idx - ((int)y * a)) / inz); \\
                 z = (float)((idx - ((int)y * a)) % inz); \\
             }
+            #endif
             
-            #define inDist(pre, post, output) { \\
+            #ifndef inDist
+            #define inDist(pre, pre_nx, pre_ny, pre_nz, \\
+                pre_dx, pre_dy, pre_dz, pre_x0, pre_y0, pre_z0, \\
+                post, post_nx, post_ny, post_nz, \\
+                post_dx, post_dy, post_dz, post_x0, post_y0, post_z0, \\
+                max_dist, output) { \\
                 float pre_x, pre_y, pre_z, post_x, post_y, post_z; \\
-                toCoords(pre, $(pre_nx), $(pre_ny), $(pre_nz), pre_x, pre_y, pre_z); \\
-                toCoords(post, $(post_nx), $(post_ny), $(post_nz), post_x, post_y, post_z); \\
-                pre_x = pre_x * $(pre_dx) + $(pre_x0); \\
-                pre_y = pre_y * $(pre_dy) + $(pre_y0); \\
-                pre_z = pre_z * $(pre_dz) + $(pre_z0); \\
-                post_x = post_x * $(post_dx) + $(post_x0); \\
-                post_y = post_y * $(post_dy) + $(post_y0); \\
-                post_z = post_z * $(post_dz) + $(post_z0); \\
+                toCoords(pre, pre_nx, pre_ny, pre_nz, pre_x, pre_y, pre_z); \\
+                toCoords(post, post_nx, post_ny, post_nz, post_x, post_y, post_z); \\
+                pre_x = pre_x * pre_dx + pre_x0; \\
+                pre_y = pre_y * pre_dy + pre_y0; \\
+                pre_z = pre_z * pre_dz + pre_z0; \\
+                post_x = post_x * post_dx + post_x0; \\
+                post_y = post_y * post_dy + post_y0; \\
+                post_z = post_z * post_dz + post_z0; \\
                 float dx = post_x - pre_x, \\
-                       dy = post_y - pre_y, \\
-                       dz = post_z - pre_z; \\
-                output = (sqrt((dx * dx) + (dy * dy) + (dz * dz)) <= ($(max_dist) * 1.4143)); \\
+                      dy = post_y - pre_y, \\
+                      dz = post_z - pre_z; \\
+                output = ( sqrt( (dx * dx) + (dy * dy) + (dz * dz) ) <= max_dist ); \\
             }
+            #endif
                         
             const scalar u = $(gennrand_uniform);
             prevJ += (1 + (int)(log(u) * $(probLogRecip)));
             
             if(prevJ < endJ) {
                 int out = 0;
-                inDist($(id_pre), prevJ, out);
+                
+                inDist($(id_pre), $(pre_nx), $(pre_ny), $(pre_nz), 
+                       $(pre_dx), $(pre_dy), $(pre_dz), 
+                       $(pre_x0), $(pre_y0), $(pre_z0), 
+                       prevJ, $(post_nx), $(post_ny), $(post_nz),
+                       $(post_dx), $(post_dy), $(post_dz), 
+                       $(post_x0), $(post_y0), $(post_z0), 
+                       $(max_dist), out);
                 if(out){
                     $(addSynapse, prevJ + $(id_post_begin));
                 }
@@ -167,5 +188,8 @@ class MaxDistanceFixedProbabilityConnector(DistanceDependentProbabilityConnector
             row_build_code=_code)
 
         return genn_model.init_connectivity(_snip, _param_space)
+
+
+
 
 

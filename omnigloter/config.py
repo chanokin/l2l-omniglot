@@ -1,23 +1,36 @@
 import numpy as np
 import os
+
 GENN = 'genn'
 SPINNAKER = 'spinnaker'
 
 DEBUG = bool(0)
 ONE_TO_ONE_EXCEPTION = bool(0)
-BACKEND = 'SingleThreadedCPU' if bool(1) else 'CUDA'
+BACKEND = 'SingleThreadedCPU' if bool(0) else 'CUDA'
 
 INF = float(10e10)
 
-SEED = 7
+#SEED = 7
+SEED = None
 RNG = np.random.RandomState(seed=SEED)
+
 
 USE_GABOR_LAYER = bool(0)
 
 SIM_NAME = GENN
 
+if SIM_NAME == GENN:
+    from pynn_genn.random import NativeRNG, NumpyRNG
+    NP_RNG = NumpyRNG(seed=SEED)
+    NATIVE_RNG = NativeRNG(NP_RNG, seed=SEED)
+
+else:
+    NP_RNG = RNG
+    NATIVE_RNG = RNG
+
+
 GPU_ID = 0
-USE_PROCEDURAL = bool(1)
+USE_PROCEDURAL = bool(0)
 
 TIMESTEP = 0.10 #ms
 SAMPLE_DT = 50.0 #ms
@@ -53,45 +66,45 @@ if ONE_TO_ONE_EXCEPTION:
     EXPANSION_RANGE = (1., 1.0000000000000000000001)
 else:
     # EXPANSION_RANGE = (10., 10.0001) if DEBUG else (0.25, 11.0)
-    EXPANSION_RANGE = (20., 21.0) if DEBUG else (5., 20.0)
+    EXPANSION_RANGE = (20., 21.0) if DEBUG else (5., 40.0)
 
 
-EXP_PROB_RANGE = (0.5, 0.75000001) if DEBUG else (0.01, 0.1)
+EXP_PROB_RANGE = (0.5, 0.75000001) if DEBUG else (16, )#0.025, 0.25)
 
 if ONE_TO_ONE_EXCEPTION:
     MUSHROOM_WEIGHT_RANGE = (5.0, 5.0000000001)
 else:
-    MUSHROOM_WEIGHT_RANGE = (1.0, 5.0000001) if DEBUG else (0.1, 2.0)
+    MUSHROOM_WEIGHT_RANGE = (1.0, 5.0000001) if DEBUG else (0.25, 1.0)
 # MUSHROOM_WEIGHT_RANGE = (0.50, 0.500000001) if DEBUG else (0.05, 1.0)
 # MUSHROOM_WEIGHT_RANGE = (0.025, 0.02500001) if DEBUG else (0.05, 1.0) ### for (64,64)
 
-MAX_PRE_OUTPUT = 10000
+MAX_PRE_OUTPUT = 20000
 
-OUTPUT_PROB_RANGE = (0.5, 0.750000001) if DEBUG else (0.01, 0.1)
+OUTPUT_PROB_RANGE = (0.5, 0.750000001) if DEBUG else (0.01, 0.25)
 # OUT_WEIGHT_RANGE = (0.1, 0.100000001) if DEBUG else (1.0, 5.0)
 if ONE_TO_ONE_EXCEPTION:
     OUT_WEIGHT_RANGE = (0.1, 0.1000000001)
 else:
-    OUT_WEIGHT_RANGE = (2.0, 5.000000001) if DEBUG else (0.2, 2.0)
+    OUT_WEIGHT_RANGE = (2.0, 5.000000001) if DEBUG else (0.01, 1.0)
 # OUT_WEIGHT_RANGE = (1.5, 1.500001) if DEBUG else (0.01, 0.5) ### 64x64
 
 
-A_PLUS = (0.1, 5.0000000001) if DEBUG else (0.1, 10.0)
-A_MINUS = (0.1, 1.000000001) if DEBUG else (0.1, 10.0)
+A_PLUS = (0.1, 5.0000000001) if DEBUG else (0.01, 2.0)
+A_MINUS = (0.1, 1.000000001) if DEBUG else (0.01, 2.0)
 STD_DEV = (3.0, 3.00000001) if DEBUG else (0.5, 5.0)
 DISPLACE = (0.0,)#01, 0.00100000001) if DEBUG else (0.0001, 0.1)
 MAX_DT = (80.0, 80.00000001) if DEBUG else (float(SAMPLE_DT), SAMPLE_DT*2.0)
 W_MIN_MULT = (0.0, 0.00000001) if DEBUG else (-1.,)# 0.0)
-W_MAX_MULT = (1.2,)# 1.200000001) if DEBUG else (0.1, 2.0)
-CONN_DIST = (5, 15) if DEBUG else (1, 25)
+W_MAX_MULT = (1.2,)# 1.200000001) if DEBUG else (0.1, 2.0
+CONN_DIST = (5, 15) if DEBUG else (3, 25)
 
 
 GABOR_WEIGHT_RANGE = (2.0, 5.000001) if DEBUG else (1.0, 5.0)
 
 GAIN_CONTROL_SIZE = 20
-GAIN_CONTROL_MIN_W = 0.1
-GAIN_CONTROL_MAX_W = 0.03
-GAIN_CONTROL_INH_W = 0.30000
+GAIN_CONTROL_MIN_W = 0.
+GAIN_CONTROL_MAX_W = 0.08#0000#1
+GAIN_CONTROL_INH_W = -0.10000
 GAIN_CONTROL_CUTOFF = 15
 
 
@@ -168,8 +181,8 @@ SAME_CLASS_DISTANCE_WEIGHT = 0.
 # mushroom_weight = 0.25
 INHIBITORY_WEIGHT = {
     'gabor': -5.0,
-    'mushroom': -5.0,
-    'output': -5.0,
+    'mushroom': -(0.5 if USE_PROCEDURAL else 2.0),
+    'output': -0.5,
 }
 
 EXCITATORY_WEIGHT = {
@@ -268,9 +281,10 @@ BASE_PARAMS = {
     'v_reset': -70.,  # mV
     'v_rest': -65.,  # mV
     'tau_m': 10.,  # ms
-    'tau_refrac': 1.,  # ms
+    'tau_refrac': 5.,  # ms
     'tau_syn_E': 2., # ms
     'tau_syn_I': 5., # ms
+    'i_offset': 0.
 }
 
 INH_PARAMS = BASE_PARAMS.copy()
@@ -281,6 +295,7 @@ tau_thresh = 30.0
 #tau_thresh = 50.0
 mult_thresh = 1.8
 # mult_thresh = 0.00000000001
+mult_thresh = 1.000000000000000001
 
 GABOR_PARAMS = BASE_PARAMS.copy()
 MUSHROOM_PARAMS = BASE_PARAMS.copy()
@@ -295,14 +310,19 @@ MUSHROOM_PARAMS['tau_m'] = 20.0
 
 INH_MUSHROOM_PARAMS = INH_PARAMS.copy()
 INH_OUTPUT_PARAMS = INH_PARAMS.copy()
-GAIN_CONTROL_PARAMS = INH_PARAMS.copy()
+GAIN_CONTROL_PARAMS = BASE_PARAMS.copy()
 
+tau_thresh = 60.0
+mult_thresh = 1.8
 OUTPUT_PARAMS = BASE_PARAMS.copy()
 OUTPUT_PARAMS['v_threshold'] = VTHRESH  # mV
 # OUTPUT_PARAMS['v_thresh_adapt'] = OUTPUT_PARAMS['v_threshold']
 OUTPUT_PARAMS['tau_threshold'] = tau_thresh
 OUTPUT_PARAMS['w_threshold'] = mult_thresh
+OUTPUT_PARAMS['tau_syn_E'] = 5.
 OUTPUT_PARAMS['tau_syn_I'] = 5.
+OUTPUT_PARAMS['cm'] = 1.0
+OUTPUT_PARAMS['tau_m'] = 20.0
 
 
 
@@ -322,6 +342,11 @@ RECORD_WEIGHTS = [
     # 'gabor to mushroom',
     # 'input to mushroom',
     'mushroom to output'
+]
+
+RECORD_VOLTAGES = [
+#    'output',
+#    'gain_control'
 ]
 
 SAVE_INITIAL_WEIGHTS = bool(1)
@@ -348,9 +373,9 @@ TIME_DEP = 'MyTemporalDependence'
 TIME_DEP_VARS = {
     "A_plus": 0.10,
     "A_minus": 0.01,
-    "tau_plus": 5.0,
-    #"tau_plus1": 0.0,
-    "tau_minus": 80.0,
+    "tau_plus": 10.0,
+    "tau_plus1": 10.0,
+    "tau_minus": 60.0,
     "max_learn_t": N_CLASSES * N_SAMPLES * SAMPLE_DT * N_EPOCHS + 1.0,
 }
 

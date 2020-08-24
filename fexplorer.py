@@ -28,7 +28,7 @@ ON_TITAN = bool(1)
 USE_MPI = bool(0)
 MULTIPROCESSING = (ON_JEWELS or USE_MPI or bool(1)) and (
                   not config.DEBUG)# or not ON_TITAN)
-MULTIPROCESSING = False
+#MULTIPROCESSING = False
 
 NUM_SIMS = 1
 
@@ -281,8 +281,8 @@ def main():
             gpus_per_node = 4
             population_size = gpus_per_node * nodes
         else:
-            population_size = 30
-            #population_size = 1
+            population_size = 20
+            #population_size = 5
         # population_size = 5
         p_hof = 0.25 if population_size < 50 else 0.1
         p_bob = 0.2
@@ -299,7 +299,7 @@ def main():
             popsize=population_size,
             CXPB=0.5,  # probability of mating 2 individuals
             # note: moved from 0.8 to 0.6 mutpb to see if it removes bouncing
-            MUTPB=0.7,  # probability of individual to mutate
+            MUTPB=0.3,  # probability of individual to mutate
             NGEN=num_generations,
             indpb=0.1,  # probability of "gene" to mutate
             # number of best individuals to mate

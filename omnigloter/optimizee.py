@@ -198,13 +198,15 @@ class OmniglotOptimizee(Optimizee):
         end_t = self.sim_params['duration']
         # start_t = end_t - n_class * n_test * dt
         start_t = analysis.get_test_start_t(data) 
-        avg_class_sample_distance = -config.INF
-        avg_activity_error = -config.INF #(config.OUTPUT_SIZE - config.TARGET_ACTIVITY_PER_SAMPLE) ** 3
-        avg_sharing_class_error = -config.INF #n_class ** 3
-        avg_freq_error = -config.INF #(n_test * n_class - config.TARGET_FREQUENCY_PER_OUTPUT_NEURON) ** 3
+        avg_class_sample_distance = -(n_test * n_class) ** 2
+        avg_activity_error = (config.OUTPUT_SIZE - config.TARGET_ACTIVITY_PER_SAMPLE) ** 3
+        avg_sharing_class_error = n_class ** 3
+        avg_freq_error = (n_test * n_class - config.TARGET_FREQUENCY_PER_OUTPUT_NEURON) ** 3
         act_per_samp = []
         if not data['died']:
             ### Analyze results
+            #from pprint import pprint
+            #pprint(data['recs']['output'][0])
             out_spikes = data['recs']['output'][0]['spikes']
             apc, ipc = analysis.spiking_per_class(labels, out_spikes, start_t, end_t, dt)
 
@@ -260,28 +262,33 @@ class OmniglotOptimizee(Optimizee):
             n_spikes = analysis.get_num_spikes(_spikes)
             sum_dists = np.sum(diff_class_distances) 
 
-        
+            op = np.mean if bool(1) else np.sum
+
             act_per_samp = analysis.activity_per_sample(
                 _labels, _spikes, start_t, dt)
-            avg_class_sample_distance = analysis.mean_per_sample_class_distance(
-                act_per_samp, _labels, n_out)
+
+            avg_class_sample_distance = op( analysis.per_sample_class_distance(
+                act_per_samp, _labels, n_out) )
         
             
-            avg_activity_error = analysis.mean_error_sample_target_activity(
-                config.TARGET_ACTIVITY_PER_SAMPLE, act_per_samp, power=1)
+            avg_activity_error = op( analysis.error_sample_target_activity(
+                config.TARGET_ACTIVITY_PER_SAMPLE, act_per_samp, power=1) )
 
-            avg_sharing_class_error = analysis.mean_neurons_sharing_class(
-                _labels, _spikes, start_t, dt, power=4) 
+            avg_sharing_class_error = op( analysis.neurons_sharing_class(
+                _labels, _spikes, start_t, dt, power=2) )
 
-            avg_freq_error = analysis.mean_target_frequency_error(
-                config.TARGET_FREQUENCY_PER_OUTPUT_NEURON, _spikes, power=2) 
+            avg_freq_error = op( analysis.target_frequency_error(
+                config.TARGET_FREQUENCY_PER_OUTPUT_NEURON, _spikes, power=1) )
             
             duration = data['params']['sim']['duration']
             output_binned = analysis.bin_spikes(data['recs']['output'][0]['spikes'], dt, 0, duration)
             data['binned']['output'] = output_binned
             labels = data['input']['labels']
+            n_total_tests = n_test * n_class
             data['correlations']['output'] = analysis.spikes_correlations(
-                                                analysis.bin_to_dict(output_binned, labels))
+                                                analysis.bin_to_dict(
+													output_binned[-n_total_tests:], 
+													labels[-n_total_tests:]))
 
         if 'mushroom' in data['recs']:
             start_t = analysis.get_test_start_t(data)
@@ -319,6 +326,8 @@ class OmniglotOptimizee(Optimizee):
                     'fitness': config.DIFFERENT_CLASS_DISTANCE_WEIGHT,
                 },
             },
+#fit0 = avg_class_sample_distance - avg_activity_error - avg_sharing_class_error - avg_freq_error
+
             'individual_per_class': {
                 'spikes': ipc,
                 'vectors': same_class_vectors,
@@ -327,6 +336,8 @@ class OmniglotOptimizee(Optimizee):
                 'act_per_sample': act_per_samp,
                 'avg_class_samp_distance': avg_class_sample_distance,
                 'avg_activity_error': avg_activity_error,
+                'avg_sharing_class_error': avg_sharing_class_error,
+                'avg_freq_error': avg_freq_error,
                 'weights': {
                     # same class distance
                     'fitness': config.SAME_CLASS_DISTANCE_WEIGHT,
@@ -358,6 +369,7 @@ class OmniglotOptimizee(Optimizee):
         data['fitness1'] = fit01
 
         fit0 = avg_class_sample_distance - avg_activity_error - avg_sharing_class_error - avg_freq_error
+        #fit0 = - avg_activity_error - avg_sharing_class_error - avg_freq_error
         data['fitness'] = fit0
  
         ### Save results for this individual

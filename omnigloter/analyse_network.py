@@ -53,9 +53,12 @@ def spikes_correlations(vec_dict):
                         continue
                     v0 = np.asarray(v0)
                     v1 = np.asarray(v1)
-                    norm = np.sqrt((v0**2).sum() * (v1**2).sum())
+                    w0 = np.dot(v0, v0)
+                    w1 = np.dot(v1, v1)
 
-                    v = (v0 * v1).sum()/ norm if norm > 0 else np.nan
+                    norm = np.sqrt(w0 * w1)
+                    v = np.correlate(v0, v1)[0]
+                    v = v / norm if norm > 0 else np.nan
 
                     over[acc_lens[i0] + j0, acc_lens[i1] + j1] = v
                     over[acc_lens[i0] + j1, acc_lens[i1] + j0] = v
@@ -66,10 +69,10 @@ def spikes_correlations(vec_dict):
 
 def target_frequency_error(target, spikes, power=1):
     err = [np.clip(len(times) - target, 0, np.inf)**power for times in spikes]
-    return np.sum(err)
+    return err
 
 def mean_target_frequency_error(target, spikes, power=1):
-    return target_frequency_error(target, spikes, power) / float(len(spikes))
+    return np.mean( target_frequency_error(target, spikes, power) )
     
 def inter_class_distance(_activity_per_sample, labels, n_out):
     class_samples = {}
@@ -83,7 +86,7 @@ def inter_class_distance(_activity_per_sample, labels, n_out):
             max_active = len(_activity_per_sample[idx])
 
     if max_active == 0:
-        return -config.INF
+        return [-( len(labels)**2 )]
     
     dists = []
     classes = sorted(class_samples.keys())
@@ -105,7 +108,7 @@ def inter_class_distance(_activity_per_sample, labels, n_out):
                 w = 1./np.sqrt(l0 + l1)
                 d = ( np.sum( np.abs(v0 - v1) ) ) * w
             else:
-                d = 0.
+                d = -1
 
             dists.append(d)
 
@@ -129,7 +132,7 @@ def per_sample_class_distance(_activity_per_sample, labels, n_out):
             max_active = len(_activity_per_sample[idx])
 
     if max_active == 0:
-        return -config.INF * len(labels)
+        return [-2.]
     
     v0 = np.zeros(n_out)
     v1 = np.zeros(n_out)
@@ -151,19 +154,19 @@ def per_sample_class_distance(_activity_per_sample, labels, n_out):
                         w = 1./(np.sqrt(len(samp0) + len(samp1)))
                         dists.append( np.sum(np.abs(v0 - v1)) * w )
                     else:
-                        dists.append( -1. )
+                        dists.append( -1.  )
 
     return dists
 
 
 def error_sample_target_activity(target, _activity_per_sample, power=1.0, div=1.0):
     act = np.asarray([len(ids) for ids in _activity_per_sample])
-    return np.sum(np.abs( (act - target) * (1.0/div) )**power)
+    return ( ( np.abs( act - target ) * (1.0/div) ) ** power )
 
 
 def mean_error_sample_target_activity(target, _activity_per_sample, power=1.0, div=1.0):
     err = error_sample_target_activity(target, _activity_per_sample, power, div)
-    return err / float(len(_activity_per_sample))
+    return np.mean( err ) 
 
 
 def vectors_above_threshold(vectors, threshold):
@@ -280,16 +283,20 @@ def get_distances(neurons_per_label):
 
     return dists
 
-def mean_neurons_sharing_class(labels, spikes, start_t, dt, power=1):
+
+def neurons_sharing_class(labels, spikes, start_t, dt, power=1):
     labels_per_neuron = get_labels_per_neuron(
                             labels, spikes, start_t, dt)
     n_labels_per_neuron = [len(np.unique(labels_per_neuron[k]))
                                 for k in labels_per_neuron]
     hi_n_labels_per_neuron = [(n - 1)**power for n in n_labels_per_neuron if n > 0]
     if len(hi_n_labels_per_neuron) == 0:
-        return 0
+        return [0]
 
-    return np.mean(hi_n_labels_per_neuron)    
+    return hi_n_labels_per_neuron
+
+def mean_neurons_sharing_class(labels, spikes, start_t, dt, power=1):
+    return np.mean( neurons_sharing_class(labels, spikes, start_t, dt, power) )    
 
 
 def num_neurons_sharing_class(labels, spikes, start_t, dt):
