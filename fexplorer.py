@@ -284,7 +284,7 @@ def main():
             population_size = 20
             #population_size = 5
         # population_size = 5
-        p_hof = 0.25 if population_size < 50 else 0.1
+        p_hof = 0.2 if population_size < 50 else 0.1
         p_bob = 0.2
         # last_trajs = load_last_trajs(os.path.join(
         #    paths.output_dir_path, 'per_gen_trajectories'))
@@ -299,7 +299,7 @@ def main():
             popsize=population_size,
             CXPB=0.5,  # probability of mating 2 individuals
             # note: moved from 0.8 to 0.6 mutpb to see if it removes bouncing
-            MUTPB=0.3,  # probability of individual to mutate
+            MUTPB=0.7,  # probability of individual to mutate
             NGEN=num_generations,
             indpb=0.1,  # probability of "gene" to mutate
             # number of best individuals to mate
