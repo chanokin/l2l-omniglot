@@ -222,9 +222,9 @@ def dist_conn_list(in_shapes, num_zones, out_size, radius, prob, weight, delay):
         nrows, ncols = int(num_zones[pre_pop][0]), int(num_zones[pre_pop][1])
         # select minimum distance (adjust for different in_shapes)
         _radius = np.round( np.round(radius) if pre_pop < 2 else int(np.round(radius)//div) )
-        
+        _area = 1. if prob >= 1. else ( (2. * radius) ** 2 )
         _max_n = (2. * _radius) ** 2
-        _n_pre = min(_max_n, prob)
+        _n_pre = int(min(_area * prob, _max_n)) # min(_max_n, prob)
 
         for zr in range(nrows):
             # centre row in terms of in_shape
@@ -313,20 +313,24 @@ def get_pre_indices_dist(in_shape, post_row, post_col, radius):
     return (rows * width + cols).flatten()
 
 
-def wta_mush_conn_list(in_shapes, num_zones, out_size, iweight, eweight, delay):
+def wta_mush_conn_list(in_shapes, inh_per_zone, num_zones, out_size, iweight, eweight, delay):
     econns = []
     iconns = []
     n_per_zone = out_size // num_zones['total']
     zone_idx = 0
+    abs_inh = 0
     for pre_pop in in_shapes:
         nrows, ncols = int(num_zones[pre_pop][0]), int(num_zones[pre_pop][1])
         for zr in range(nrows):
             for zc in range(ncols):
                 start_post = int(zone_idx * n_per_zone)
                 end_post = int(start_post + n_per_zone)
-                for post in range(start_post, end_post):
-                    econns.append((post, zone_idx, eweight, delay))
-                    iconns.append((zone_idx, post, iweight, delay))
+                for inh_idx in range(inh_per_zone):
+                    ews = 1./(1. + inh_idx)
+                    inh_idx = zone_idx * inh_per_zone + inh_idx
+                    for post in range(start_post, end_post):
+                        econns.append((post, inh_idx, eweight * ews, delay))
+                        iconns.append((inh_idx, post, iweight, delay))
 
                 zone_idx += 1
                 pc = (100.0 * (zone_idx) / num_zones['total'])
@@ -387,7 +391,7 @@ def output_connection_list(kenyon_size, decision_size, prob_active, active_weigh
     dice = config.NATIVE_RNG.uniform(0., 1., size=(n_conns))
     active = np.where(dice <= prob_active)
     print(prob_active, len(active[0]), n_conns)
-    scale *= 0.1
+    #scale *= 0.1
     matrix[active, 2] = config.NATIVE_RNG.normal(loc=active_weight, 
                                                 # scale=active_weight * 0.05,
                                                  scale=scale,

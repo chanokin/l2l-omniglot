@@ -54,6 +54,8 @@ class Decoder(object):
 
         self.np_rng = None # NumpyRNG(seed=config.SEED)
         self.rng = None # NativeRNG(self.np_rng, seed=config.SEED)
+        
+        self.initial_weights = None
 
         print('\n\n')
         env = os.environ
@@ -585,7 +587,9 @@ class Decoder(object):
         shapes = self.in_shapes
         divs = params['sim']['input_divs']
         nz = self.num_zones_mushroom(shapes, radius, divs)
-        count = int(nz['total']) + 1
+        count = (int(nz['total']) ) * config.N_INH_PER_ZONE + 1
+        print('MUSHROOM INH TOTAL NEURONS = {}'.format(count))
+
         neuron_type = getattr(sim, config.INH_MUSHROOM_CLASS)
         p = sim.Population(count, neuron_type, config.INH_MUSHROOM_PARAMS,
                            label='inh_mushroom')
@@ -631,7 +635,7 @@ class Decoder(object):
             return self._network['populations']['inh_output']
 
         neuron_type = getattr(sim, config.INH_OUTPUT_CLASS)
-        n_out = 1 # params['sim']['output_size']
+        n_out = config.N_INH_OUTPUT # params['sim']['output_size']
         p = sim.Population(n_out, neuron_type, config.INH_OUTPUT_PARAMS,
                            label='inh_output')
 
@@ -732,7 +736,7 @@ class Decoder(object):
             return self._network['projections']['input to mushroom']
 
         post = self.mushroom_population()
-        prob = params['ind']['exp_prob'] # I changed the meaning, this is now number of pre
+        prob = params['ind']['exp_prob']  # this now means how many input connections a post has
         weight = params['ind']['mushroom_weight']
         delay = 3.
         radius = float(np.copy(params['ind']['conn_dist']))
@@ -874,7 +878,8 @@ class Decoder(object):
         #                    )
 
 
-        icon, econ = utils.wta_mush_conn_list(shapes, nz, exc.size, iw, ew, config.TIMESTEP)
+        icon, econ = utils.wta_mush_conn_list(shapes, config.N_INH_PER_ZONE, nz, exc.size, 
+                                              iw, ew, config.TIMESTEP)
         prjs['e to i'] = sim.Projection(exc, inh,
                             sim.FromListConnector(econ),
                             label='mushroom to inh_mushroom',
@@ -977,8 +982,8 @@ class Decoder(object):
         prob = ind_par['out_prob']
         exp_size = params['ind']['expand']
         max_w = ind_par['out_weight'] #/ exp_size
-        # min_w = ind_par['w_min_mult']
-        min_w = 0.#-ind_par['out_weight']
+        min_w = ind_par['w_min_mult']
+        # min_w = 0.#-ind_par['out_weight']
         conn_list = utils.output_connection_list(pre.size, post.size, prob,
                                                  max_w, 0.1, max_pre=config.MAX_PRE_OUTPUT# ,
                                                  #seed=config.SEED,
@@ -1013,27 +1018,32 @@ class Decoder(object):
         exc = self.output_population()
         inh = self.inh_output_population()
         ew = config.EXCITATORY_WEIGHT['output']
+        iw = config.INHIBITORY_WEIGHT['output']
 
-        #prjs['e to i'] = sim.Projection(exc, inh,
-        #                    sim.AllToAllConnector(),
-        #                    sim.StaticSynapse(weight=ew, delay=config.TIMESTEP),
-        #                    label='output to inh_output',
-        #                    receptor_type='excitatory')
+        prjs['e to i'] = sim.Projection(exc, inh,
+                            sim.AllToAllConnector(),
+                            sim.StaticSynapse(weight=ew, delay=config.TIMESTEP),
+                            label='output to inh_output',
+                            receptor_type='excitatory',
+                            use_procedural=config.USE_PROCEDURAL,
+                            num_threads_per_spike=16)
 
-        #prjs['i to e'] = sim.Projection(inh, exc,
-        #                    sim.AllToAllConnector(),
-        #                    sim.StaticSynapse(weight=config.INHIBITORY_WEIGHT['output'], delay=config.TIMESTEP),
-        #                    label='inh_output to output',
-        #                    receptor_type='inhibitory')
+        prjs['i to e'] = sim.Projection(inh, exc,
+                            sim.AllToAllConnector(),
+                            sim.StaticSynapse(weight=iw, delay=config.TIMESTEP),
+                            label='inh_output to output',
+                            receptor_type='inhibitory',
+                            use_procedural=config.USE_PROCEDURAL,
+                            num_threads_per_spike=16)
 
-        prjs['i to e'] = sim.Projection(exc, exc,
-                             sim.AllToAllConnector(),
-                             sim.StaticSynapse(weight=config.INHIBITORY_WEIGHT['output'],
-                                               delay=config.TIMESTEP),
-                             label='wta - output to output',
-                             receptor_type='inhibitory',
-                             use_procedural=config.USE_PROCEDURAL,
-                             num_threads_per_spike=16)
+        #prjs['i to e'] = sim.Projection(exc, exc,
+        #                     sim.AllToAllConnector(),
+        #                     sim.StaticSynapse(weight=iw, delay=config.TIMESTEP),
+        #                     label='wta - output to output',
+        #                     receptor_type='inhibitory',
+        #                     #receptor_type='inhShunt',
+        #                     use_procedural=config.USE_PROCEDURAL,
+        #                     num_threads_per_spike=16)
 
         return prjs
 

@@ -42,7 +42,10 @@ def spikes_correlations(vec_dict):
             acc_lens.append(0)
         else:
             acc_lens.append(lens[i0-1] + acc_lens[i0-1])
-
+    
+    
+    same_class = []
+    diff_class = []
     for i0, c0 in enumerate(cls):
         for i1, c1 in enumerate(cls):
             if i1 < i0:
@@ -51,6 +54,9 @@ def spikes_correlations(vec_dict):
                 for j1, v1 in enumerate(vs[c1]):
                     if j1 < j0:
                         continue
+                    
+                    err_val = 0. if i0 == i1 else 1.    
+
                     v0 = np.asarray(v0)
                     v1 = np.asarray(v1)
                     w0 = np.dot(v0, v0)
@@ -58,13 +64,19 @@ def spikes_correlations(vec_dict):
 
                     norm = np.sqrt(w0 * w1)
                     v = np.correlate(v0, v1)[0]
-                    v = v / norm if norm > 0 else np.nan
+                    v = v / norm if norm > 0 else err_val
+                    
+                    if i0 == i1:
+                        same_class.append(v)
+                    else:
+                        diff_class.append(v)
 
                     over[acc_lens[i0] + j0, acc_lens[i1] + j1] = v
                     over[acc_lens[i0] + j1, acc_lens[i1] + j0] = v
                     over[acc_lens[i1] + j0, acc_lens[i0] + j1] = v
                     over[acc_lens[i1] + j1, acc_lens[i0] + j0] = v
-    return over
+
+    return over, same_class, diff_class
 
 
 def target_frequency_error(target, spikes, power=1):
@@ -86,7 +98,7 @@ def inter_class_distance(_activity_per_sample, labels, n_out):
             max_active = len(_activity_per_sample[idx])
 
     if max_active == 0:
-        return [-( len(labels)**2 )]
+        return [-float(n_out)]
     
     dists = []
     classes = sorted(class_samples.keys())
@@ -132,7 +144,7 @@ def per_sample_class_distance(_activity_per_sample, labels, n_out):
             max_active = len(_activity_per_sample[idx])
 
     if max_active == 0:
-        return [-2.]
+        return [float(-n_out)]
     
     v0 = np.zeros(n_out)
     v1 = np.zeros(n_out)

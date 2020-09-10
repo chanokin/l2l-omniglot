@@ -232,7 +232,7 @@ class GeneticAlgorithmOptimizer(Optimizer):
         n_bobs = self.n_hof
         bob_inds = tools.selBest(self.hall_of_fame, n_bobs)
 
-        for hof_ind in bob_inds:
+        for hof_ind in self.hall_of_fame:
             sind = str_ind(
                 list_to_dict(hof_ind, self.optimizee_individual_dict_spec)
             )
@@ -243,8 +243,9 @@ class GeneticAlgorithmOptimizer(Optimizer):
             print("BoB individual is %s,\n %s" % (
                 sind, hof_ind.fitness.values))
 
-        bob_inds = list(map(self.toolbox.clone, bob_inds))
 
+        #bob_inds = list(map(self.toolbox.clone, bob_inds))
+        bob_inds = list(map(self.toolbox.clone, self.hall_of_fame))
 
         # ------- Create the next generation by crossover and mutation -------- #
         if self.g < NGEN - 1:  # not necessary for the last generation
