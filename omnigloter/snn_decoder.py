@@ -152,11 +152,11 @@ class Decoder(object):
         logging.info("\tPopulations: Gain Control")
         pops['gain_control'] = self.gain_control_population(params)
 
-        logging.info("\tPopulations: Output")
-        pops['output'] = self.output_population(params)
+        #logging.info("\tPopulations: Output")
+        #pops['output'] = self.output_population(params)
 
-        logging.info("\tPopulations: Output Inhibitory")
-        pops['inh_output'] = self.inh_output_population(params)
+        #logging.info("\tPopulations: Output Inhibitory")
+        #pops['inh_output'] = self.inh_output_population(params)
 
         self._network['populations'] = pops
 
@@ -179,15 +179,15 @@ class Decoder(object):
         projs['in to gain'] = self.input_to_gain(params)
         projs['gain to mushroom'] = self.gain_to_mushroom(params)
 
-        logging.info("\tProjections: Mushroom to Output")
-        projs['mushroom to output'] = self.mushroom_to_output(params)
+        #logging.info("\tProjections: Mushroom to Output")
+        #projs['mushroom to output'] = self.mushroom_to_output(params)
 
         logging.info("\tProjections: Mushroom sWTA")
         projs['wta_mushroom'] = self.wta_mushroom(params)
         #projs['noise to mushroom'] = self.noise_to_mushroom(params)
 
-        logging.info("\tProjections: Output sWTA")
-        projs['wta_output'] = self.wta_output(params)
+        #logging.info("\tProjections: Output sWTA")
+        #projs['wta_output'] = self.wta_output(params)
 
 
 
@@ -745,13 +745,15 @@ class Decoder(object):
         nz = self.num_zones_mushroom(shapes, radius, divs)
 
         conns = []
+        iconns = []
         if config.ONE_TO_ONE_EXCEPTION == True:
             conns = utils.o2o_conn_list(shapes, nz, post.size, radius, prob, weight, delay)
         else:
-            conns = utils.dist_conn_list(shapes, nz, post.size, radius, prob, weight, delay)
+            conns, iconns = utils.dist_conn_list(shapes, nz, post.size, radius, prob, weight, delay)
 
         syn = sim.StaticSynapse(weight=weight, delay=delay)
         self._in_to_mush_conns = conns
+        self._in_to_mush_iconns = iconns
         projs = {}
 
         for k, pre in self.input_populations().items():
@@ -768,6 +770,18 @@ class Decoder(object):
                             num_threads_per_spike=16
                            )
          #       print(k)
+                sim.Projection(pre, post,
+        #                    MaxDistanceFixedProbabilityConnector(max_dist=radius,
+        #                                                         probability=prob,
+        #                                                         rng=self.rng),
+                            sim.FromListConnector(iconns[k]),
+                            synapse_type=syn,
+                            label='input to mushroom INH - {}'.format(k),
+                            receptor_type='inhibitory',
+                            use_procedural=config.USE_PROCEDURAL,
+                            num_threads_per_spike=16
+                           )
+
             else:
                 projs[k] = None
 
@@ -888,7 +902,9 @@ class Decoder(object):
         prjs['i to e'] = sim.Projection(inh, exc,
                             sim.FromListConnector(icon),
                             label='inh_mushroom to mushroom',
-                            receptor_type='inhibitory')
+                            #receptor_type='inhibitory'
+                            receptor_type='inhShunt',
+                            )
 
         # prjs['e to i'] = sim.Projection(exc, inh,
         #                     sim.AllToAllConnector(),

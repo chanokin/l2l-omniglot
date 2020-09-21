@@ -381,8 +381,8 @@ class OmniglotOptimizee(Optimizee):
 
         fit0 = avg_class_sample_distance - avg_activity_error - avg_sharing_class_error - avg_freq_error
         #fit0 = - avg_activity_error - avg_sharing_class_error - avg_freq_error
-        #fit0 = ( np.mean( 1.+ np.asarray(data['correlations']['mushroom']['same']) ) - 
-        #         np.mean( ( 1. + np.asarray(data['correlations']['mushroom']['diff']) )**2 ))
+        fit0 = ( np.mean( 1.+ np.asarray(data['correlations']['mushroom']['same']) ) - 
+                 np.mean( ( 1. + np.asarray(data['correlations']['mushroom']['diff']) )**2 ))
         
         data['fitness'] = fit0
  
