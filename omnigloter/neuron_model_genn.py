@@ -29,12 +29,14 @@ _genn_postsyn_defs["ExpCurrShunt"] = GeNNDefinitions(
     definitions={
         "decay_code": {
             "inhShunt_": "$(inSyn) *= $(expDecay);",
+            "inhX_": "$(inSyn) *= $(expDecay);",
             "inh_": "$(inSyn) *= $(expDecay);",
             "exc_": "$(inSyn) *= $(expDecay);",
         },
 
         "apply_input_code": {
             "inhShunt_": "$(IsynShunt) += $(init) * $(inSyn);",
+            "inhX_": "$(IsynX) += $(init) * $(inSyn);",
             "inh_": "$(Isyn) += $(init) * $(inSyn);",
             "exc_": "$(Isyn) += $(init) * $(inSyn);",
         },
@@ -49,11 +51,13 @@ _genn_postsyn_defs["ExpCurrShunt"] = GeNNDefinitions(
         ("tau_syn_E", "exc_expDecay", partial(tau_to_decay, "tau_syn_E"), None),
         ("tau_syn_I", "inh_expDecay", partial(tau_to_decay, "tau_syn_I"), None),
         ("tau_syn_S", "inhShunt_expDecay", partial(tau_to_decay, "tau_syn_S"), None),
+        ("tau_syn_X", "inhX_expDecay", partial(tau_to_decay, "tau_syn_X"), None),
     ),
     extra_param_values={
         "exc_init": partial(tau_to_init, "tau_syn_E"),
         "inh_init": partial(tau_to_init, "tau_syn_I"),
         "inhShunt_init": partial(tau_to_init, "tau_syn_S"),
+        "inhX_init": partial(tau_to_init, "tau_syn_X"),
 
     })
 
@@ -62,7 +66,7 @@ _genn_neuron_defs['IFAdapt'] = GeNNDefinitions(
         "sim_code": """
             $(I) = $(Isyn);
             if ($(RefracTime) <= 0.0) {
-                scalar alpha = (($(Isyn) * exp( $(IsynShunt) ) + $(Ioffset)) * $(Rmembrane)) + $(Vrest);
+                scalar alpha = (($(Isyn) * exp( $(IsynShunt) ) + $(IsynX) + $(Ioffset)) * $(Rmembrane)) + $(Vrest);
                 $(V) = alpha - ($(ExpTC) * (alpha - $(V)));
                 $(VThreshAdapt) = $(Vthresh) + ($(VThreshAdapt) - $(Vthresh))* $(DownThresh);
             }
@@ -98,7 +102,8 @@ _genn_neuron_defs['IFAdapt'] = GeNNDefinitions(
             "DownThresh": "scalar",
         },
         "additional_input_vars": [
-            ("IsynShunt", "scalar", 0.0)
+            ("IsynShunt", "scalar", 0.0),
+            ("IsynX", "scalar", 0.0),
         ],
     },
     translations=(
@@ -132,6 +137,7 @@ class IF_curr_exp_i(cells.IF_curr_exp, GeNNStandardCellType):
         'tau_syn_E': 5.0,  # Decay time of excitatory synaptic current in ms.
         'tau_syn_I': 5.0,  # Decay time of inhibitory synaptic current in ms.
         'tau_syn_S': 5.0,
+        'tau_syn_X': 5.0,
         'i_offset': 0.0,  # Offset current in nA
         'v_reset': -65.0,  # Reset potential after a spike in mV.
         'v_threshold': -50.0,  # Spike threshold in mV. STATIC, MIN
@@ -154,6 +160,7 @@ class IF_curr_exp_i(cells.IF_curr_exp, GeNNStandardCellType):
         'isyn_exc': 0.0,
         'isyn_inh': 0.0,
         'isyn_inh_s': 0.0,
+        'isyn_inh_x': 0.0,
         'i': 0.0,
     }
 
@@ -162,6 +169,7 @@ class IF_curr_exp_i(cells.IF_curr_exp, GeNNStandardCellType):
         'isyn_exc': 'nA',
         'isyn_inh': 'nA',
         'isyn_inh_s': 'nA',
+        'isyn_inh_x': 'nA',
         'v_rest': 'mV',
         'cm': 'nF',
         'tau_m': 'ms',
@@ -169,6 +177,7 @@ class IF_curr_exp_i(cells.IF_curr_exp, GeNNStandardCellType):
         'tau_syn_E': 'ms',
         'tau_syn_I': 'ms',
         'tau_syn_S': 'ms',
+        'tau_syn_X': 'ms',
         'i_offset': 'nA',
         'v_reset': 'mV',
         'v_threshold': 'mV',
@@ -179,7 +188,7 @@ class IF_curr_exp_i(cells.IF_curr_exp, GeNNStandardCellType):
     }
 
     receptor_types = (
-        'excitatory', 'inhibitory', 'inhShunt'
+        'excitatory', 'inhibitory', 'inhShunt', 'inhX',
     )
 
     genn_neuron_name = "IF_i"

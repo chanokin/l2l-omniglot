@@ -3,19 +3,28 @@ from omnigloter.neuron_model_genn import IF_curr_exp_i
 import matplotlib.pyplot as plt
 import numpy as np
 
+COLORS = ['r', 'g', 'b', 'o', 'k', 'm', 'c']
 
-def plot_data(segExc, segment, figsize=None, title=None):
-    fig, (ax0) = plt.subplots(nrows=1, ncols=1, figsize=figsize)
+def plot_data(segExc, segment, figsize=None, title=None, ax=None):
+    if ax is None:
+        fig, (ax0) = plt.subplots(nrows=1, ncols=1, figsize=figsize)
+    else:
+        ax0 = ax
+
     ax0.set_title(title)
 
     for t in segExc.spiketrains[0]:
-        plt.axvline(t, color='green', linewidth=1.)
+        ax0.axvline(t, color='green', linestyle='--', linewidth=1.)
 
     max_v = np.max( segment.filter(name='v')[0] )
     for nid, times in enumerate(segment.spiketrains):
-        ax0.plot(times, (float(0.99 * max_v) + nid) * np.ones_like(times), '.')
+        ax0.plot(times, (float(0.9 * max_v) + nid*2) * np.ones_like(times), '.',
+                 color=COLORS[nid])
 
-    ax0.plot(segment.filter(name='v')[0])
+    volts = segment.filter(name='v')[0]
+    for nid, vs in enumerate(volts.T):
+        # print(volts.shape)
+        ax0.plot(vs, color=COLORS[nid])
 
 
 timestep = 1.
@@ -57,11 +66,19 @@ postStd = sim.Population(n_neurons,
                       label='output standard',
                       )
 postStd.record(['v', 'spikes'])
+
 postShunt = sim.Population(n_neurons,
                       IF_curr_exp_i(**parameters),
                       label='output shunt',
                       )
 postShunt.record(['v', 'spikes'])
+
+postBoth = sim.Population(n_neurons,
+                      IF_curr_exp_i(**parameters),
+                      label='output both',
+                      )
+postBoth.record(['v', 'spikes'])
+
 
 eProjStd = sim.Projection(preExc, postStd,
                        sim.OneToOneConnector(),
@@ -75,6 +92,12 @@ eProjShunt = sim.Projection(preExc, postShunt,
                        receptor_type='excitatory',
                        label='exc_proj_shunt',
                        )
+eProjBoth = sim.Projection(preExc, postBoth,
+                       sim.OneToOneConnector(),
+                       sim.StaticSynapse(weight=5.),
+                       receptor_type='excitatory',
+                       label='exc_proj_both',
+                       )
 
 iProj = sim.Projection(postStd, postStd,
                        sim.AllToAllConnector(),
@@ -82,6 +105,7 @@ iProj = sim.Projection(postStd, postStd,
                        receptor_type='inhibitory',
                        label='inh_proj',
                        )
+
 sProj = sim.Projection(postShunt, postShunt,
                        sim.AllToAllConnector(),
                        sim.StaticSynapse(weight=-5.0),
@@ -89,18 +113,41 @@ sProj = sim.Projection(postShunt, postShunt,
                        label='shunt_proj',
                        )
 
+
+sProjB = sim.Projection(postBoth, postBoth,
+                       sim.AllToAllConnector(),
+                       sim.StaticSynapse(weight=-5.0),
+                       receptor_type='inhShunt',
+                       label='shunt_proj',
+                       )
+
+xProjB = sim.Projection(postBoth, postBoth,
+                       sim.AllToAllConnector(),
+                       sim.StaticSynapse(weight=-3.0),
+                       receptor_type='inhX',
+                       label='x_proj',
+                       )
+
+
 sim.run(runtime)
 data_exc = preExc.get_data().segments[0]
 data_std = postStd.get_data().segments[0]
 data_shunt = postShunt.get_data().segments[0]
+data_both = postBoth.get_data().segments[0]
 sim.end()
 
-figsize = (15, 5)
+figsize = (15, 15)
+fig, (ax0, ax1, ax2) = plt.subplots(nrows=3, ncols=1, figsize=figsize, sharex=True, sharey=True)
 
-plot_data(data_exc, data_shunt, title='shunt', figsize=figsize)
-plt.tight_layout()
+plot_data(data_exc, data_std, title='standard', figsize=figsize, ax=ax0)
 
-plot_data(data_exc, data_std, title='standard', figsize=figsize)
-plt.tight_layout()
+# plt.tight_layout()
+plot_data(data_exc, data_shunt, title='shunt', figsize=figsize, ax=ax1)
+
+plot_data(data_exc, data_both, title='both', figsize=figsize, ax=ax2)
+# plt.tight_layout()
+
+
+# plt.tight_layout()
 
 plt.show()
