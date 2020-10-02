@@ -28,17 +28,17 @@ _genn_postsyn_defs = {}
 _genn_postsyn_defs["ExpCurrShunt"] = GeNNDefinitions(
     definitions={
         "decay_code": {
-            "inhShunt_": "$(inSyn) *= $(expDecay);",
-            "inhX_": "$(inSyn) *= $(expDecay);",
-            "inh_": "$(inSyn) *= $(expDecay);",
-            "exc_": "$(inSyn) *= $(expDecay);",
+            "inhShunt": "$(inSyn) *= $(expDecay);",
+            "inhX": "$(inSyn) *= $(expDecay);",
+            "inh": "$(inSyn) *= $(expDecay);",
+            "exc": "$(inSyn) *= $(expDecay);",
         },
 
         "apply_input_code": {
-            "inhShunt_": "$(IsynShunt) += $(init) * $(inSyn);",
-            "inhX_": "$(IsynX) += $(init) * $(inSyn);",
-            "inh_": "$(Isyn) += $(init) * $(inSyn);",
-            "exc_": "$(Isyn) += $(init) * $(inSyn);",
+            "inhShunt": "$(IsynShunt) += $(init) * $(inSyn);",
+            "inhX": "$(IsynX) += $(init) * $(inSyn);",
+            "inh": "$(Isyn) += $(init) * $(inSyn);",
+            "exc": "$(Isyn) += $(init) * $(inSyn);",
         },
 
         "var_name_types": [],

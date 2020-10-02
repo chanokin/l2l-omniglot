@@ -5,20 +5,20 @@ import numpy as np
 
 COLORS = ['r', 'g', 'b', 'o', 'k', 'm', 'c']
 
-def plot_data(segExc, segment, figsize=None, title=None, ax=None):
+def plot_data(segExc, segment, timestep, figsize=None, title=None, ax=None):
     if ax is None:
         fig, (ax0) = plt.subplots(nrows=1, ncols=1, figsize=figsize)
     else:
         ax0 = ax
 
     ax0.set_title(title)
-
+    wt = 1. / timestep
     for t in segExc.spiketrains[0]:
-        ax0.axvline(t, color='green', linestyle='--', linewidth=1.)
+        ax0.axvline(t * wt, color='green', linestyle='--', linewidth=1.)
 
     max_v = np.max( segment.filter(name='v')[0] )
     for nid, times in enumerate(segment.spiketrains):
-        ax0.plot(times, (float(0.9 * max_v) + nid*2) * np.ones_like(times), '.',
+        ax0.plot(times * wt, (float(0.8*max_v) + nid*5) * np.ones_like(times), '.',
                  color=COLORS[nid])
 
     volts = segment.filter(name='v')[0]
@@ -27,7 +27,7 @@ def plot_data(segExc, segment, figsize=None, title=None, ax=None):
         ax0.plot(vs, color=COLORS[nid])
 
 
-timestep = 1.
+timestep = 0.1
 runtime = 200.
 sim.setup(timestep)
 
@@ -53,11 +53,11 @@ parameters = {
     'i': 0.0,  # nA total input current
 
     ### https://www.frontiersin.org/articles/10.3389/fncom.2018.00074/full
-    # 'tau_thresh': 80.0,
-    # 'mult_thresh': 1.8,
+    'tau_threshold': 80.0,
+    'w_threshold': 1.8,
     ### https://www.frontiersin.org/articles/10.3389/fncom.2018.00074/full
-    'tau_threshold': 1.0,
-    'w_threshold': 1.0000000000,
+    # 'tau_threshold': 1.0,
+    # 'w_threshold': 1.00000000001,
     'v_thresh_adapt': -50.0,  # Spike threshold in mV.
 
 }
@@ -82,33 +82,33 @@ postBoth.record(['v', 'spikes'])
 
 eProjStd = sim.Projection(preExc, postStd,
                        sim.OneToOneConnector(),
-                       sim.StaticSynapse(weight=5.),
+                       sim.StaticSynapse(weight=2.),
                        receptor_type='excitatory',
                        label='exc_proj_std',
                        )
 eProjShunt = sim.Projection(preExc, postShunt,
                        sim.OneToOneConnector(),
-                       sim.StaticSynapse(weight=5.),
+                       sim.StaticSynapse(weight=2.),
                        receptor_type='excitatory',
                        label='exc_proj_shunt',
                        )
 eProjBoth = sim.Projection(preExc, postBoth,
                        sim.OneToOneConnector(),
-                       sim.StaticSynapse(weight=5.),
+                       sim.StaticSynapse(weight=2.),
                        receptor_type='excitatory',
                        label='exc_proj_both',
                        )
 
 iProj = sim.Projection(postStd, postStd,
                        sim.AllToAllConnector(),
-                       sim.StaticSynapse(weight=-5.0),
+                       sim.StaticSynapse(weight=-5.0, delay=timestep),
                        receptor_type='inhibitory',
                        label='inh_proj',
                        )
 
 sProj = sim.Projection(postShunt, postShunt,
                        sim.AllToAllConnector(),
-                       sim.StaticSynapse(weight=-5.0),
+                       sim.StaticSynapse(weight=-5.0, delay=timestep),
                        receptor_type='inhShunt',
                        label='shunt_proj',
                        )
@@ -116,14 +116,14 @@ sProj = sim.Projection(postShunt, postShunt,
 
 sProjB = sim.Projection(postBoth, postBoth,
                        sim.AllToAllConnector(),
-                       sim.StaticSynapse(weight=-5.0),
+                       sim.StaticSynapse(weight=-5.0, delay=timestep),
                        receptor_type='inhShunt',
                        label='shunt_proj',
                        )
 
 xProjB = sim.Projection(postBoth, postBoth,
                        sim.AllToAllConnector(),
-                       sim.StaticSynapse(weight=-3.0),
+                       sim.StaticSynapse(weight=-5.0, delay=timestep),
                        receptor_type='inhX',
                        label='x_proj',
                        )
@@ -137,14 +137,15 @@ data_both = postBoth.get_data().segments[0]
 sim.end()
 
 figsize = (15, 15)
-fig, (ax0, ax1, ax2) = plt.subplots(nrows=3, ncols=1, figsize=figsize, sharex=True, sharey=True)
+fig, (ax0, ax1, ax2) = plt.subplots(nrows=3, ncols=1, figsize=figsize,
+                                    sharex=True, sharey=True)
 
-plot_data(data_exc, data_std, title='standard', figsize=figsize, ax=ax0)
+plot_data(data_exc, data_std, timestep, title='standard', figsize=figsize, ax=ax0)
 
 # plt.tight_layout()
-plot_data(data_exc, data_shunt, title='shunt', figsize=figsize, ax=ax1)
+plot_data(data_exc, data_shunt, timestep, title='shunt', figsize=figsize, ax=ax1)
 
-plot_data(data_exc, data_both, title='both', figsize=figsize, ax=ax2)
+plot_data(data_exc, data_both, timestep, title='both', figsize=figsize, ax=ax2)
 # plt.tight_layout()
 
 
