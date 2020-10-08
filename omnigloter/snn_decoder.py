@@ -148,15 +148,17 @@ class Decoder(object):
         logging.info("\tPopulations: Mushroom Inhibitory")
         pops['inh_mushroom'] = self.inh_mushroom_population(params)
         #pops['noise_mushroom'] = self.noise_mushroom_population(params)
+        
+        if config.GAIN_CONTROL:
+            logging.info("\tPopulations: Gain Control")
+            pops['gain_control'] = self.gain_control_population(params)
+        
+        if not config.TEST_MUSHROOM:
+            logging.info("\tPopulations: Output")
+            pops['output'] = self.output_population(params)
 
-        logging.info("\tPopulations: Gain Control")
-        pops['gain_control'] = self.gain_control_population(params)
-
-        #logging.info("\tPopulations: Output")
-        #pops['output'] = self.output_population(params)
-
-        #logging.info("\tPopulations: Output Inhibitory")
-        #pops['inh_output'] = self.inh_output_population(params)
+            logging.info("\tPopulations: Output Inhibitory")
+            pops['inh_output'] = self.inh_output_population(params)
 
         self._network['populations'] = pops
 
@@ -175,20 +177,21 @@ class Decoder(object):
             logging.info("\tProjections: Input to Mushroom")
             projs['input to mushroom'] = self.input_to_mushroom(params)
 
-        logging.info("\tProjections: In to GainControl")
-        projs['in to gain'] = self.input_to_gain(params)
-        projs['gain to mushroom'] = self.gain_to_mushroom(params)
-
-        #logging.info("\tProjections: Mushroom to Output")
-        #projs['mushroom to output'] = self.mushroom_to_output(params)
+        if config.GAIN_CONTROL:
+            logging.info("\tProjections: In to GainControl")
+            projs['in to gain'] = self.input_to_gain(params)
+            projs['gain to mushroom'] = self.gain_to_mushroom(params)
 
         logging.info("\tProjections: Mushroom sWTA")
         projs['wta_mushroom'] = self.wta_mushroom(params)
         #projs['noise to mushroom'] = self.noise_to_mushroom(params)
-
-        #logging.info("\tProjections: Output sWTA")
-        #projs['wta_output'] = self.wta_output(params)
-
+        
+        if not config.TEST_MUSHROOM:
+            logging.info("\tProjections: Mushroom to Output")
+            projs['mushroom to output'] = self.mushroom_to_output(params)
+        
+            logging.info("\tProjections: Output sWTA")
+            projs['wta_output'] = self.wta_output(params)
 
 
         self._network['projections'] = projs
@@ -303,7 +306,9 @@ class Decoder(object):
                         shapes[tidx] = shape
 
                     # print(len([1 for ts in tmp[tidx] if ts.size > 0]))
-                    tmp[tidx][:] = utils.randomize_ssa(tmp[tidx], 1., 1. + dt*0.2, decimals=0)
+                    tmp[tidx][:] = utils.randomize_ssa(tmp[tidx], config.SAMPLE_OFFSET, 
+                                                    config.SAMPLE_MAX_T, 
+                                                    decimals=1)
                     # print(len([1 for ts in tmp[tidx] if ts.size > 0]))
                     tmp[tidx][:] = utils.add_noise(prob_noise, tmp[tidx], 0., dt*0.5)
                     # print(len([1 for ts in tmp[tidx] if ts.size > 0]))
@@ -366,7 +371,10 @@ class Decoder(object):
                     #if shapes[tidx] is None:
                     #    shapes[tidx] = shape
 
-                    tmp[tidx][:] = utils.randomize_ssa(tmp[tidx], 1., 1. + dt*0.2, decimals=0)
+                    tmp[tidx][:] = utils.randomize_ssa(tmp[tidx], 
+                                                    config.SAMPLE_OFFSET,
+                                                    config.SAMPLE_MAX_T,
+                                                    decimals=1)
                     tmp[tidx][:] = utils.add_noise(prob_noise, tmp[tidx], 0., dt*0.5)
                     #if spikes[tidx] is None:
                     #    spikes[tidx] = tmp[tidx]
@@ -644,7 +652,38 @@ class Decoder(object):
 
         return p
 
+    def supervisor(self, params=None):
+        if 'populations' in self._network and 'supervisor' in self._network['populations']:
+            return self._network['populations']['supervisor']
 
+        ntype = sim.StepCurrentSource
+        nsources = config.N_CLASSES
+        nsamp = config.N_SAMPLES * config.N_EPOCHS
+        ntrain = nsources * nsamp
+
+        labels = self.in_labels
+        sample_dt = config.SAMPLE_DT
+        sup_dt = config.SUP_DURATION
+        on = config.SUP_CORRECT_AMPLITUDE
+        off = config.SUP_WRONG_AMPLITUDE
+        # start current input right before spikes start 
+        start_t = config.SAMPLE_OFFSET - sup_dt - config.TIMESTEP 
+        times = np.zeros((nsources, (nsamp * 2) + 1)) # we need to say when it goes on and off u_u
+        amps = np.zeros((nsources, (nsamp * 2) + 1))
+        for i, lbl in enumerate(labels):
+            idx = i * 2
+            # start of supervision (set high) 
+            times[lbl][idx] = start_t + sample_dt * i
+            amps[lbl][idx] = on
+            
+            # end of supervision (set low)
+            times[lbl][idx + 1] = start_t +  sample_dt * i + sup_dt
+            amps[lbl][idx + 1] = off
+
+
+        return times, amps, sim.StepCurrentSource(times=times, amplitudes=amps)
+                
+        
     ### ----------------------------------------------------------------------
     ### -----------------          projections           ---------------------
     ### ----------------------------------------------------------------------
@@ -770,16 +809,17 @@ class Decoder(object):
                             num_threads_per_spike=16
                            )
          #       print(k)
-                sim.Projection(pre, post,
+                if config.INH_INPUT:
+                    sim.Projection(pre, post,
         #                    MaxDistanceFixedProbabilityConnector(max_dist=radius,
         #                                                         probability=prob,
         #                                                         rng=self.rng),
                             sim.FromListConnector(iconns[k]),
                             synapse_type=syn,
                             label='input to mushroom INH - {}'.format(k),
-                            receptor_type='inhibitory',
-                            use_procedural=config.USE_PROCEDURAL,
-                            num_threads_per_spike=16
+                            receptor_type='inhX',
+        #                    use_procedural=config.USE_PROCEDURAL,
+        #                    num_threads_per_spike=16
                            )
 
             else:
@@ -1048,7 +1088,8 @@ class Decoder(object):
                             sim.AllToAllConnector(),
                             sim.StaticSynapse(weight=iw, delay=config.TIMESTEP),
                             label='inh_output to output',
-                            receptor_type='inhibitory',
+                            receptor_type='inhShunt',
+                            #receptor_type='inhibitory',
                             use_procedural=config.USE_PROCEDURAL,
                             num_threads_per_spike=16)
 

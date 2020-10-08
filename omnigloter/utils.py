@@ -255,19 +255,31 @@ def dist_conn_list(in_shapes, num_zones, out_size, radius, prob, weight, delay=1
                 # post population partition start and end
                 start_post = int(zone_idx * n_per_zone)
                 end_post = min(int(start_post + n_per_zone), out_size)
-                
+               
+                pre_sets = [] 
                 pre_avail = set(range(rows.size))
                 total_w = n_idx * weight 
                 # choose pre coords sets for each post neuron
                 for post in range(start_post, end_post):
-                    rand_indices = config.NP_RNG.choice(
-                                    rows.size, size=n_idx, replace=False).astype('int')
+                    max_loops = min(25, end_post - start_post)
+                    while max_loops:
+                        rand_indices = config.NP_RNG.choice(
+                            rows.size, size=n_idx, replace=False).astype('int')
+                        in_sets = [int(set(rand_indices) == s) for s in pre_sets]
+                        if np.sum(in_sets) > 0:
+                            max_loops -= 1
+                            continue
+
+                        in_sets.append(set(rand_indices))
+                        break
+                        
                     # randomly selected coordinates
                     rand_r = rand_indices // rows.shape[1]
                     rand_c = rand_indices % rows.shape[1]
 
                     # randomly selected coordinates converted to indices
                     pre_indices = rows[rand_r, rand_c] * width + cols[rand_r, rand_c]
+                    
                     for pre_i in pre_indices:
                         if pre_i < max_pre:
                             w = weight # np.clip(config.RNG.normal(weight, weight * 0.1), 0., np.inf)

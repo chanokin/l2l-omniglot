@@ -34,6 +34,8 @@ USE_PROCEDURAL = bool(0)
 
 TIMESTEP = 0.10 #ms
 SAMPLE_DT = 50.0 #ms
+SAMPLE_OFFSET = 10. # ms
+SAMPLE_MAX_T = SAMPLE_OFFSET + 5. # ms
 # iw = 28
 iw = 32
 # iw = 48
@@ -55,6 +57,16 @@ DURATION = N_CLASSES * TOTAL_SAMPLES * SAMPLE_DT
 PROB_NOISE_SAMPLE = 0.0#5
 STEPS = 1 if SIM_NAME == GENN else 100
 
+
+TEST_MUSHROOM = bool(1)
+GAIN_CONTROL = bool(1)
+INH_INPUT = bool(1)
+SUPERVISION = bool(0)
+
+
+SUP_AMPLITUDE = 1 # nA ?
+SUP_DURATION = 3 # ms
+
 KERNEL_W = 7
 N_INPUT_LAYERS = 4
 PAD = KERNEL_W//2
@@ -66,15 +78,17 @@ if ONE_TO_ONE_EXCEPTION:
     EXPANSION_RANGE = (1., 1.0000000000000000000001)
 else:
     # EXPANSION_RANGE = (10., 10.0001) if DEBUG else (0.25, 11.0)
-    EXPANSION_RANGE = (20., 21.0) if DEBUG else (10, 40)#(5, 40)
+    EXPANSION_RANGE = (20., 21.0) if DEBUG else (40, )#(5, 40)
 
 
-EXP_PROB_RANGE = (0.5, 0.75000001) if DEBUG else (1, 65)#0.025, 0.25)
+EXP_PROB_RANGE = (0.5, 0.75000001) if DEBUG else (3,)# 65)#0.025, 0.25)
+
+MUSH_MAX = 3.2 #/ float(EXP_PROB_RANGE[0])
 
 if ONE_TO_ONE_EXCEPTION:
     MUSHROOM_WEIGHT_RANGE = (5.0, 5.0000000001)
 else:
-    MUSHROOM_WEIGHT_RANGE = (1.0, 5.0000001) if DEBUG else (0.01, 5.0)
+    MUSHROOM_WEIGHT_RANGE = (1.0, 5.0000001) if DEBUG else (0.001, MUSH_MAX)
 # MUSHROOM_WEIGHT_RANGE = (0.50, 0.500000001) if DEBUG else (0.05, 1.0)
 # MUSHROOM_WEIGHT_RANGE = (0.025, 0.02500001) if DEBUG else (0.05, 1.0) ### for (64,64)
 
@@ -85,18 +99,20 @@ OUTPUT_PROB_RANGE = (0.5, 0.750000001) if DEBUG else (0.01, )#0.5)
 if ONE_TO_ONE_EXCEPTION:
     OUT_WEIGHT_RANGE = (0.1, 0.1000000001)
 else:
-    OUT_WEIGHT_RANGE = (2.0, 5.000000001) if DEBUG else (0.1, )#10.)# (0.01, 0.5)
+    OUT_WEIGHT_RANGE = (2.0, 5.000000001) if DEBUG else (0.01, )#10.)# (0.01, 0.5)
 # OUT_WEIGHT_RANGE = (1.5, 1.500001) if DEBUG else (0.01, 0.5) ### 64x64
 
 
-A_PLUS = (0.1, 5.0000000001) if DEBUG else (0.001, )#10.0)
-A_MINUS = (0.1, 1.000000001) if DEBUG else (0.001, )#10.0)
+A_PLUS = (0.1, 5.0000000001) if DEBUG else (0.001,)# 10.0)
+A_MINUS = (0.1, 1.000000001) if DEBUG else (0.001,)# 10.0)
+CONN_DIST = (5, 15) if DEBUG else (1, 16)#(1, 15)
+
+
 STD_DEV = (3.0, 3.00000001) if DEBUG else (0.5, 5.0)
 DISPLACE = (0.0,)#01, 0.00100000001) if DEBUG else (0.0001, 0.1)
 MAX_DT = (80.0, 80.00000001) if DEBUG else (float(SAMPLE_DT), SAMPLE_DT*2.0)
-W_MIN_MULT = (0.0, 0.00000001) if DEBUG else (0, )#(-1, 1)
+W_MIN_MULT = (0.0, 0.00000001) if DEBUG else (-0.001, )#(-1, 1)
 W_MAX_MULT = (1.,)# 1.200000001) if DEBUG else (0.1, 2.0
-CONN_DIST = (5, 15) if DEBUG else (1, 15)#(1, 15)
 
 
 GABOR_WEIGHT_RANGE = (2.0, 5.000001) if DEBUG else (1.0, 5.0)
@@ -154,7 +170,11 @@ NOISE_MUSHROOM_PROB = 0.0
 # WEIGHTS FOR FITNESS #
 #################################################################
 
-N_PER_CLASS = 50
+if SUPERVISION:
+    N_PER_CLASS = 1
+else:
+    N_PER_CLASS = 50
+
 OUTPUT_SIZE = N_CLASSES * N_PER_CLASS
 MAX_ACTIVE_PER_CLASS = int(OUTPUT_SIZE / 0.5)
 ACTIVITY_THRESHOLD = 0.5 * OUTPUT_SIZE
@@ -304,7 +324,7 @@ mult_thresh = 1.000000000000000001
 GABOR_PARAMS = BASE_PARAMS.copy()
 MUSHROOM_PARAMS = BASE_PARAMS.copy()
 MUSHROOM_PARAMS['v_threshold'] = VTHRESH  # mV
-# MUSHROOM_PARAMS['v_thresh_adapt'] = MUSHROOM_PARAMS['v_threshold']
+MUSHROOM_PARAMS['v_thresh_adapt'] = MUSHROOM_PARAMS['v_threshold']
 MUSHROOM_PARAMS['tau_threshold'] = tau_thresh
 MUSHROOM_PARAMS['w_threshold'] = mult_thresh
 MUSHROOM_PARAMS['tau_syn_E'] = 5.
@@ -316,13 +336,13 @@ INH_MUSHROOM_PARAMS = INH_PARAMS.copy()
 INH_OUTPUT_PARAMS = INH_PARAMS.copy()
 GAIN_CONTROL_PARAMS = BASE_PARAMS.copy()
 
-tau_thresh = 60.0
+tau_thresh = 50.0
 mult_thresh = 1.8
 mult_thresh = 1.00000000000000000000001
 
 OUTPUT_PARAMS = BASE_PARAMS.copy()
 OUTPUT_PARAMS['v_threshold'] = VTHRESH  # mV
-# OUTPUT_PARAMS['v_thresh_adapt'] = OUTPUT_PARAMS['v_threshold']
+OUTPUT_PARAMS['v_thresh_adapt'] = OUTPUT_PARAMS['v_threshold']
 OUTPUT_PARAMS['tau_threshold'] = tau_thresh
 OUTPUT_PARAMS['w_threshold'] = mult_thresh
 OUTPUT_PARAMS['tau_syn_E'] = 5.
@@ -338,17 +358,19 @@ RECORD_SPIKES = [
     # 'input',
     # 'gabor',
 #    'gain_control',
-    'mushroom',
+#    'mushroom',
     # 'inh_mushroom',
     'output',
     # 'inh_output',
 ]
+if TEST_MUSHROOM and 'mushroom' not in RECORD_SPIKES:
+   RECORD_SPIKES.append('mushroom')
 
 RECORD_WEIGHTS = [
     # 'input to gabor',
     # 'gabor to mushroom',
     # 'input to mushroom',
-    'mushroom to output'
+#    'mushroom to output'
 ]
 
 RECORD_VOLTAGES = [
