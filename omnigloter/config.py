@@ -58,14 +58,15 @@ PROB_NOISE_SAMPLE = 0.0#5
 STEPS = 1 if SIM_NAME == GENN else 100
 
 
-TEST_MUSHROOM = bool(1)
+TEST_MUSHROOM = bool(0)
 GAIN_CONTROL = bool(1)
 INH_INPUT = bool(1)
-SUPERVISION = bool(0)
+SUPERVISION = bool(1) and (not TEST_MUSHROOM) 
 
 
-SUP_AMPLITUDE = 1 # nA ?
-SUP_DURATION = 3 # ms
+SUP_DURATION = 10 # ms
+SUP_CORRECT_AMPLITUDE = 0.2 # nA ?
+SUP_WRONG_AMPLITUDE = -0.01 # nA ?
 
 KERNEL_W = 7
 N_INPUT_LAYERS = 4
@@ -83,12 +84,12 @@ else:
 
 EXP_PROB_RANGE = (0.5, 0.75000001) if DEBUG else (3,)# 65)#0.025, 0.25)
 
-MUSH_MAX = 3.2 #/ float(EXP_PROB_RANGE[0])
+MUSH_MAX = 3.2 / float(EXP_PROB_RANGE[0])
 
 if ONE_TO_ONE_EXCEPTION:
     MUSHROOM_WEIGHT_RANGE = (5.0, 5.0000000001)
 else:
-    MUSHROOM_WEIGHT_RANGE = (1.0, 5.0000001) if DEBUG else (0.001, MUSH_MAX)
+    MUSHROOM_WEIGHT_RANGE = (1.0, 5.0000001) if DEBUG else (MUSH_MAX * 1.2, )# (0.001, MUSH_MAX)
 # MUSHROOM_WEIGHT_RANGE = (0.50, 0.500000001) if DEBUG else (0.05, 1.0)
 # MUSHROOM_WEIGHT_RANGE = (0.025, 0.02500001) if DEBUG else (0.05, 1.0) ### for (64,64)
 
@@ -99,19 +100,19 @@ OUTPUT_PROB_RANGE = (0.5, 0.750000001) if DEBUG else (0.01, )#0.5)
 if ONE_TO_ONE_EXCEPTION:
     OUT_WEIGHT_RANGE = (0.1, 0.1000000001)
 else:
-    OUT_WEIGHT_RANGE = (2.0, 5.000000001) if DEBUG else (0.01, )#10.)# (0.01, 0.5)
+    OUT_WEIGHT_RANGE = (2.0, 5.000000001) if DEBUG else (0.1, 3.2)# (0.01, 0.5)
 # OUT_WEIGHT_RANGE = (1.5, 1.500001) if DEBUG else (0.01, 0.5) ### 64x64
 
 
 A_PLUS = (0.1, 5.0000000001) if DEBUG else (0.001,)# 10.0)
 A_MINUS = (0.1, 1.000000001) if DEBUG else (0.001,)# 10.0)
-CONN_DIST = (5, 15) if DEBUG else (1, 16)#(1, 15)
+CONN_DIST = (5, 15) if DEBUG else (2,)# 16)#(1, 15)
 
 
 STD_DEV = (3.0, 3.00000001) if DEBUG else (0.5, 5.0)
 DISPLACE = (0.0,)#01, 0.00100000001) if DEBUG else (0.0001, 0.1)
 MAX_DT = (80.0, 80.00000001) if DEBUG else (float(SAMPLE_DT), SAMPLE_DT*2.0)
-W_MIN_MULT = (0.0, 0.00000001) if DEBUG else (-0.001, )#(-1, 1)
+W_MIN_MULT = (0.0, 0.00000001) if DEBUG else (0.00, )#(-1, 1)
 W_MAX_MULT = (1.,)# 1.200000001) if DEBUG else (0.1, 2.0
 
 
@@ -202,7 +203,7 @@ SAME_CLASS_DISTANCE_WEIGHT = 0.
 INHIBITORY_WEIGHT = {
     'gabor': -5.0,
     'mushroom': -(0.5 if USE_PROCEDURAL else 0.5),
-    'output': -0.5,
+    'output': -0.01,
 }
 
 N_INH_PER_ZONE = 3
@@ -374,7 +375,7 @@ RECORD_WEIGHTS = [
 ]
 
 RECORD_VOLTAGES = [
-#    'output',
+    'output',
 #    'gain_control'
 ]
 

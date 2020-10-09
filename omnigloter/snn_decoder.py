@@ -160,6 +160,12 @@ class Decoder(object):
             logging.info("\tPopulations: Output Inhibitory")
             pops['inh_output'] = self.inh_output_population(params)
 
+
+        if config.SUPERVISION:
+            logging.info("\tPopulations: Step Current Supervisor")
+            self._sup_times, self._sup_amps, sup_pop = self.supervisor()
+            pops['supervisor'] = sup_pop
+
         self._network['populations'] = pops
 
 
@@ -193,6 +199,9 @@ class Decoder(object):
             logging.info("\tProjections: Output sWTA")
             projs['wta_output'] = self.wta_output(params)
 
+        if config.SUPERVISION:
+            logging.info("\tProjection: Supervisor to Output")
+            self.supervisor().inject_into(pops['output'])
 
         self._network['projections'] = projs
 
@@ -610,13 +619,17 @@ class Decoder(object):
 
     def output_population(self, params=None):
         if 'populations' in self._network and 'output' in self._network['populations']:
+            print(list(self._network['populations'].keys()))
             return self._network['populations']['output']
-
+        
+        
+        
         try:
             neuron_type = getattr(sim, config.OUTPUT_CLASS)
         except:
             neuron_type = getattr(__neuron__, config.OUTPUT_CLASS)
-
+        
+        print(params['sim'])
         n_out = params['sim']['output_size']
         vr = config.OUTPUT_PARAMS['v_rest'] 
         vrm = config.OUTPUT_PARAMS['v_reset']
@@ -667,21 +680,38 @@ class Decoder(object):
         on = config.SUP_CORRECT_AMPLITUDE
         off = config.SUP_WRONG_AMPLITUDE
         # start current input right before spikes start 
-        start_t = config.SAMPLE_OFFSET - sup_dt - config.TIMESTEP 
-        times = np.zeros((nsources, (nsamp * 2) + 1)) # we need to say when it goes on and off u_u
-        amps = np.zeros((nsources, (nsamp * 2) + 1))
-        for i, lbl in enumerate(labels):
+        start_t = max(0, config.SAMPLE_OFFSET - sup_dt - config.TIMESTEP)
+
+        # we need to say when it goes on and off u_u
+        times = np.zeros((nsources, (ntrain * 2) + 2)) 
+        amps = np.zeros((nsources, (ntrain * 2) + 2))
+        #times[:, 0] = 0.
+        #amps[:, 0] = 0.
+        for i in range(ntrain):
+            lbl = labels[i]
             idx = i * 2
-            # start of supervision (set high) 
-            times[lbl][idx] = start_t + sample_dt * i
-            amps[lbl][idx] = on
+            t = start_t + sample_dt * i
             
-            # end of supervision (set low)
-            times[lbl][idx + 1] = start_t +  sample_dt * i + sup_dt
-            amps[lbl][idx + 1] = off
+            for src in range(nsources):
+                times[lbl][idx] = t
+                
+                if lbl == src:
+                    amps[lbl][idx] = on
+                else:
+                    amps[src][idx] = off
 
+                times[src][idx + 1] = t + sup_dt
+                amps[src][idx + 1] = off
 
-        return times, amps, sim.StepCurrentSource(times=times, amplitudes=amps)
+#            print(i+1, lbl, start_t + sample_dt * i, on, start_t +  sample_dt * i + sup_dt, off)
+
+        # loop through all current sources to turn them off after training
+        for trow, arow in zip(times, amps):
+            trow[-1] = sample_dt * (i + 1)
+            arow[-1] = 0
+
+        curr = sim.StepCurrentSource(times=times.tolist(), amplitudes=amps.tolist())
+        return times, amps, curr
                 
         
     ### ----------------------------------------------------------------------
