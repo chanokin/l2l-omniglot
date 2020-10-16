@@ -155,7 +155,8 @@ class MyTemporalDependence(synapses.STDPTimingDependence):
             if (dt > 0){
                 scalar update = 0.0;
                 if (dt <= $(tau_plus1)){
-                    update = $(Aplus);                
+                    update = ($(tau_plus) - dt) * ($(Aplus) - $(Aminus)) / $(tau_plus);
+                    //update = $(Aplus);                
                 }
                 else
                 if ( dt <= $(tau_minus) ){
@@ -176,7 +177,8 @@ class MyTemporalDependence(synapses.STDPTimingDependence):
             if (dt >= 0){
                 scalar update = 0.0;
                 if (dt <= $(tau_plus)){
-                    update = $(Aplus);
+                    update = ($(tau_plus) - dt) * ($(Aplus) - $(Aminus)) / $(tau_plus);
+                    //update = $(Aplus);
                     
                 }
                 else if ( dt <= $(tau_minus) ){
