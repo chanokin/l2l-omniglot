@@ -196,7 +196,7 @@ def o2o_conn_list(in_shapes, num_zones, out_size, radius, prob, weight, delay):
     sys.stdout.flush()
     return conns
 
-def dist_conn_list(in_shapes, num_zones, out_size, radius, prob, weight, delay):
+def dist_conn_list(in_shapes, num_zones, out_size, radius, prob, weight, delay=1, iweight=-0.1):
     print("\tin dist_con_list")
     print("\t\tpre shapes {}".format(in_shapes))
     print("\t\tnum zones {}".format(num_zones))
@@ -211,8 +211,10 @@ def dist_conn_list(in_shapes, num_zones, out_size, radius, prob, weight, delay):
                   in_shapes[0][1]//in_shapes[2][1])
     else:
         div = 1.0
-
+    
+    iw = iweight
     conns = [[] for _ in range(n_in)]
+    iconns = [[] for _ in range(n_in)]
     n_per_zone = int(out_size // num_zones['total'])
     zone_idx = 0
     for pre_pop in in_shapes:
@@ -253,10 +255,48 @@ def dist_conn_list(in_shapes, num_zones, out_size, radius, prob, weight, delay):
                 # post population partition start and end
                 start_post = int(zone_idx * n_per_zone)
                 end_post = min(int(start_post + n_per_zone), out_size)
-
+               
+                pre_sets = [] 
+                pre_avail = set(range(rows.size))
+                total_w = n_idx * weight 
                 # choose pre coords sets for each post neuron
                 for post in range(start_post, end_post):
-                    rand_indices = config.NP_RNG.choice(rows.size, size=n_idx, replace=False).astype('int')
+                    max_loops = min(25, end_post - start_post)
+                    while max_loops:
+                        rand_indices = config.NP_RNG.choice(
+                            rows.size, size=n_idx, replace=False).astype('int')
+                        in_sets = [int(set(rand_indices) == s) for s in pre_sets]
+                        if np.sum(in_sets) > 0:
+                            max_loops -= 1
+                            continue
+
+                        in_sets.append(set(rand_indices))
+                        break
+                        
+                    # randomly selected coordinates
+                    rand_r = rand_indices // rows.shape[1]
+                    rand_c = rand_indices % rows.shape[1]
+
+                    # randomly selected coordinates converted to indices
+                    pre_indices = rows[rand_r, rand_c] * width + cols[rand_r, rand_c]
+                    
+                    for pre_i in pre_indices:
+                        if pre_i < max_pre:
+                            w = weight # np.clip(config.RNG.normal(weight, weight * 0.1), 0., np.inf)
+                            d = delay # np.round(np.random.uniform(delay, delay + 10.))
+                            conns[pre_pop].append((pre_i, post, w, d))
+                        else:
+                            print("pre is larger than max ({} >= {})".format(pre_i, max_pre))
+                            print("pre_r, row_l, row_h = {} {} {}".format(pre_r, row_l, row_h))
+                            print("pre_c, col_l, col_h = {} {} {}".format(pre_c, col_l, col_h))
+                    
+
+                    pre_avail = pre_avail - set(rand_indices)
+                    n_idx = min(len(pre_avail), n_idx)
+                    rand_indices = np.asarray(list(pre_avail), dtype='int')
+                    #rand_indices = config.NP_RNG.choice(
+                                    #list(pre_avail), size=n_idx, replace=False).astype('int')
+                    
                     # randomly selected coordinates
                     rand_r = rand_indices // rows.shape[1]
                     rand_c = rand_indices % rows.shape[1]
@@ -265,9 +305,10 @@ def dist_conn_list(in_shapes, num_zones, out_size, radius, prob, weight, delay):
                     pre_indices = rows[rand_r, rand_c] * width + cols[rand_r, rand_c]
                     for pre_i in pre_indices:
                         if pre_i < max_pre:
-                            w = np.clip(config.RNG.normal(weight, weight * 0.1), 0., np.inf)
-                            d = 1# np.round(np.random.uniform(delay, delay + 10.))
-                            conns[pre_pop].append((pre_i, post, w, d))
+                            w = -total_w / len(pre_indices) 
+                            # np.clip(config.RNG.normal(weight, weight * 0.1), 0., np.inf)
+                            d = delay # np.round(np.random.uniform(delay, delay + 10.))
+                            iconns[pre_pop].append((pre_i, post, w, d))
                         else:
                             print("pre is larger than max ({} >= {})".format(pre_i, max_pre))
                             print("pre_r, row_l, row_h = {} {} {}".format(pre_r, row_l, row_h))
@@ -280,7 +321,8 @@ def dist_conn_list(in_shapes, num_zones, out_size, radius, prob, weight, delay):
 
     sys.stdout.write("\n")
     sys.stdout.flush()
-    return conns
+    return conns, iconns
+
 
 def get_pre_indices_dist(in_shape, post_row, post_col, radius):
     print("\tin get_pre_indices_dist")

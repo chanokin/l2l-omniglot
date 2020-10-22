@@ -379,10 +379,17 @@ class OmniglotOptimizee(Optimizee):
         fit01 = sum_dists / (n_empty + n_sharing + n_spikes)
         data['fitness1'] = fit01
 
-        fit0 = avg_class_sample_distance - avg_activity_error - avg_sharing_class_error - avg_freq_error
+        if not config.TEST_MUSHROOM:
+            wout = data['params']['ind']['out_weight']
+            wmush = data['params']['ind']['mushroom_weight']
+            fit0 = (avg_class_sample_distance - avg_activity_error 
+                    - avg_sharing_class_error - avg_freq_error - wout - wmush)
+        else:
+            wmush = data['params']['ind']['mushroom_weight']
         #fit0 = - avg_activity_error - avg_sharing_class_error - avg_freq_error
-        #fit0 = ( np.mean( 1.+ np.asarray(data['correlations']['mushroom']['same']) ) - 
-        #         np.mean( ( 1. + np.asarray(data['correlations']['mushroom']['diff']) )**2 ))
+            fit0 = ( np.mean( 1.+ np.asarray(data['correlations']['mushroom']['same']) ) - 
+                     np.mean( ( 1. + np.asarray(data['correlations']['mushroom']['diff']) )**1.75 ) -
+                     wmush*0.01)
         
         data['fitness'] = fit0
  

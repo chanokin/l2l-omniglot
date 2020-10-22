@@ -148,15 +148,23 @@ class Decoder(object):
         logging.info("\tPopulations: Mushroom Inhibitory")
         pops['inh_mushroom'] = self.inh_mushroom_population(params)
         #pops['noise_mushroom'] = self.noise_mushroom_population(params)
+        
+        if config.GAIN_CONTROL:
+            logging.info("\tPopulations: Gain Control")
+            pops['gain_control'] = self.gain_control_population(params)
+        
+        if not config.TEST_MUSHROOM:
+            logging.info("\tPopulations: Output")
+            pops['output'] = self.output_population(params)
 
-        logging.info("\tPopulations: Gain Control")
-        pops['gain_control'] = self.gain_control_population(params)
+            logging.info("\tPopulations: Output Inhibitory")
+            pops['inh_output'] = self.inh_output_population(params)
 
-        logging.info("\tPopulations: Output")
-        pops['output'] = self.output_population(params)
 
-        logging.info("\tPopulations: Output Inhibitory")
-        pops['inh_output'] = self.inh_output_population(params)
+        if config.SUPERVISION:
+            logging.info("\tPopulations: Step Current Supervisor")
+            self._sup_times, self._sup_amps, sup_pop = self.supervisor()
+            pops['supervisor'] = sup_pop
 
         self._network['populations'] = pops
 
@@ -175,21 +183,25 @@ class Decoder(object):
             logging.info("\tProjections: Input to Mushroom")
             projs['input to mushroom'] = self.input_to_mushroom(params)
 
-        logging.info("\tProjections: In to GainControl")
-        projs['in to gain'] = self.input_to_gain(params)
-        projs['gain to mushroom'] = self.gain_to_mushroom(params)
-
-        logging.info("\tProjections: Mushroom to Output")
-        projs['mushroom to output'] = self.mushroom_to_output(params)
+        if config.GAIN_CONTROL:
+            logging.info("\tProjections: In to GainControl")
+            projs['in to gain'] = self.input_to_gain(params)
+            projs['gain to mushroom'] = self.gain_to_mushroom(params)
 
         logging.info("\tProjections: Mushroom sWTA")
         projs['wta_mushroom'] = self.wta_mushroom(params)
         #projs['noise to mushroom'] = self.noise_to_mushroom(params)
+        
+        if not config.TEST_MUSHROOM:
+            logging.info("\tProjections: Mushroom to Output")
+            projs['mushroom to output'] = self.mushroom_to_output(params)
+        
+            logging.info("\tProjections: Output sWTA")
+            projs['wta_output'] = self.wta_output(params)
 
-        logging.info("\tProjections: Output sWTA")
-        projs['wta_output'] = self.wta_output(params)
-
-
+        if config.SUPERVISION:
+            logging.info("\tProjection: Supervisor to Output")
+            self.supervisor().inject_into(pops['output'])
 
         self._network['projections'] = projs
 
@@ -303,7 +315,9 @@ class Decoder(object):
                         shapes[tidx] = shape
 
                     # print(len([1 for ts in tmp[tidx] if ts.size > 0]))
-                    tmp[tidx][:] = utils.randomize_ssa(tmp[tidx], 1., 1. + dt*0.2, decimals=0)
+                    #tmp[tidx][:] = utils.randomize_ssa(tmp[tidx], config.SAMPLE_OFFSET, 
+                    #                                config.SAMPLE_MAX_T, 
+                    #                                decimals=1)
                     # print(len([1 for ts in tmp[tidx] if ts.size > 0]))
                     tmp[tidx][:] = utils.add_noise(prob_noise, tmp[tidx], 0., dt*0.5)
                     # print(len([1 for ts in tmp[tidx] if ts.size > 0]))
@@ -366,7 +380,10 @@ class Decoder(object):
                     #if shapes[tidx] is None:
                     #    shapes[tidx] = shape
 
-                    tmp[tidx][:] = utils.randomize_ssa(tmp[tidx], 1., 1. + dt*0.2, decimals=0)
+                    tmp[tidx][:] = utils.randomize_ssa(tmp[tidx], 
+                                                    config.SAMPLE_OFFSET,
+                                                    config.SAMPLE_MAX_T,
+                                                    decimals=1)
                     tmp[tidx][:] = utils.add_noise(prob_noise, tmp[tidx], 0., dt*0.5)
                     #if spikes[tidx] is None:
                     #    spikes[tidx] = tmp[tidx]
@@ -532,7 +549,7 @@ class Decoder(object):
             nz[k] = []
             for i in range(len(d)):
                 r = np.floor((2.0 * radius + 1.) / d[i])
-                r = max(1.0, r * (2./3.))
+                r = max(1.0, r )#* (2./3.))
                 nz[k].append( max(1.0, np.ceil(in_shapes[k][i]/r)) )
 
             total += np.prod(nz[k])
@@ -602,13 +619,17 @@ class Decoder(object):
 
     def output_population(self, params=None):
         if 'populations' in self._network and 'output' in self._network['populations']:
+            print(list(self._network['populations'].keys()))
             return self._network['populations']['output']
-
+        
+        
+        
         try:
             neuron_type = getattr(sim, config.OUTPUT_CLASS)
         except:
             neuron_type = getattr(__neuron__, config.OUTPUT_CLASS)
-
+        
+        print(params['sim'])
         n_out = params['sim']['output_size']
         vr = config.OUTPUT_PARAMS['v_rest'] 
         vrm = config.OUTPUT_PARAMS['v_reset']
@@ -644,7 +665,55 @@ class Decoder(object):
 
         return p
 
+    def supervisor(self, params=None):
+        if 'populations' in self._network and 'supervisor' in self._network['populations']:
+            return self._network['populations']['supervisor']
 
+        ntype = sim.StepCurrentSource
+        nsources = config.N_CLASSES
+        nsamp = config.N_SAMPLES * config.N_EPOCHS
+        ntrain = nsources * nsamp
+
+        labels = self.in_labels
+        sample_dt = config.SAMPLE_DT
+        sup_dt = config.SUP_DURATION
+        on = config.SUP_CORRECT_AMPLITUDE
+        off = config.SUP_WRONG_AMPLITUDE
+        # start current input right before spikes start 
+        start_t = max(0, config.SAMPLE_OFFSET - sup_dt - config.TIMESTEP + config.SUP_DELAY)
+
+        # we need to say when it goes on and off u_u
+        times = np.zeros((nsources, (ntrain * 2) + 1)) 
+        amps = np.zeros((nsources, (ntrain * 2) + 1))
+        #times[:, 0] = 0.
+        #amps[:, 0] = 0.
+        for i in range(ntrain):
+            lbl = labels[i]
+            idx = i * 2
+            t = start_t + sample_dt * i
+            
+            for src in range(nsources):
+                times[lbl][idx] = t
+                
+                if lbl == src:
+                    amps[lbl][idx] = on
+                else:
+                    amps[src][idx] = off
+
+                times[src][idx + 1] = t + sup_dt
+                amps[src][idx + 1] = 0.
+
+#            print(i+1, lbl, start_t + sample_dt * i, on, start_t +  sample_dt * i + sup_dt, off)
+
+        # loop through all current sources to turn them off after training
+        for trow, arow in zip(times, amps):
+            trow[-1] = sample_dt * (i + 1)
+            arow[-1] = 0
+
+        curr = sim.StepCurrentSource(times=times.tolist(), amplitudes=amps.tolist())
+        return times, amps, curr
+                
+        
     ### ----------------------------------------------------------------------
     ### -----------------          projections           ---------------------
     ### ----------------------------------------------------------------------
@@ -745,13 +814,15 @@ class Decoder(object):
         nz = self.num_zones_mushroom(shapes, radius, divs)
 
         conns = []
+        iconns = []
         if config.ONE_TO_ONE_EXCEPTION == True:
             conns = utils.o2o_conn_list(shapes, nz, post.size, radius, prob, weight, delay)
         else:
-            conns = utils.dist_conn_list(shapes, nz, post.size, radius, prob, weight, delay)
+            conns, iconns = utils.dist_conn_list(shapes, nz, post.size, radius, prob, weight, delay)
 
         syn = sim.StaticSynapse(weight=weight, delay=delay)
         self._in_to_mush_conns = conns
+        self._in_to_mush_iconns = iconns
         projs = {}
 
         for k, pre in self.input_populations().items():
@@ -768,6 +839,19 @@ class Decoder(object):
                             num_threads_per_spike=16
                            )
          #       print(k)
+                if config.INH_INPUT:
+                    sim.Projection(pre, post,
+        #                    MaxDistanceFixedProbabilityConnector(max_dist=radius,
+        #                                                         probability=prob,
+        #                                                         rng=self.rng),
+                            sim.FromListConnector(iconns[k]),
+                            synapse_type=syn,
+                            label='input to mushroom INH - {}'.format(k),
+                            receptor_type='inhX',
+        #                    use_procedural=config.USE_PROCEDURAL,
+        #                    num_threads_per_spike=16
+                           )
+
             else:
                 projs[k] = None
 
@@ -888,7 +972,9 @@ class Decoder(object):
         prjs['i to e'] = sim.Projection(inh, exc,
                             sim.FromListConnector(icon),
                             label='inh_mushroom to mushroom',
-                            receptor_type='inhibitory')
+                            #receptor_type='inhibitory'
+                            receptor_type='inhShunt',
+                            )
 
         # prjs['e to i'] = sim.Projection(exc, inh,
         #                     sim.AllToAllConnector(),
@@ -1032,7 +1118,8 @@ class Decoder(object):
                             sim.AllToAllConnector(),
                             sim.StaticSynapse(weight=iw, delay=config.TIMESTEP),
                             label='inh_output to output',
-                            receptor_type='inhibitory',
+                            receptor_type='inhShunt',
+                            #receptor_type='inhibitory',
                             use_procedural=config.USE_PROCEDURAL,
                             num_threads_per_spike=16)
 
