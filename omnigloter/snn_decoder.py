@@ -315,9 +315,9 @@ class Decoder(object):
                         shapes[tidx] = shape
 
                     # print(len([1 for ts in tmp[tidx] if ts.size > 0]))
-                    tmp[tidx][:] = utils.randomize_ssa(tmp[tidx], config.SAMPLE_OFFSET, 
-                                                    config.SAMPLE_MAX_T, 
-                                                    decimals=1)
+                    #tmp[tidx][:] = utils.randomize_ssa(tmp[tidx], config.SAMPLE_OFFSET, 
+                    #                                config.SAMPLE_MAX_T, 
+                    #                                decimals=1)
                     # print(len([1 for ts in tmp[tidx] if ts.size > 0]))
                     tmp[tidx][:] = utils.add_noise(prob_noise, tmp[tidx], 0., dt*0.5)
                     # print(len([1 for ts in tmp[tidx] if ts.size > 0]))
@@ -549,7 +549,7 @@ class Decoder(object):
             nz[k] = []
             for i in range(len(d)):
                 r = np.floor((2.0 * radius + 1.) / d[i])
-                r = max(1.0, r * (2./3.))
+                r = max(1.0, r )#* (2./3.))
                 nz[k].append( max(1.0, np.ceil(in_shapes[k][i]/r)) )
 
             total += np.prod(nz[k])
@@ -680,11 +680,11 @@ class Decoder(object):
         on = config.SUP_CORRECT_AMPLITUDE
         off = config.SUP_WRONG_AMPLITUDE
         # start current input right before spikes start 
-        start_t = max(0, config.SAMPLE_OFFSET - sup_dt - config.TIMESTEP)
+        start_t = max(0, config.SAMPLE_OFFSET - sup_dt - config.TIMESTEP + config.SUP_DELAY)
 
         # we need to say when it goes on and off u_u
-        times = np.zeros((nsources, (ntrain * 2) + 2)) 
-        amps = np.zeros((nsources, (ntrain * 2) + 2))
+        times = np.zeros((nsources, (ntrain * 2) + 1)) 
+        amps = np.zeros((nsources, (ntrain * 2) + 1))
         #times[:, 0] = 0.
         #amps[:, 0] = 0.
         for i in range(ntrain):
@@ -701,7 +701,7 @@ class Decoder(object):
                     amps[src][idx] = off
 
                 times[src][idx + 1] = t + sup_dt
-                amps[src][idx + 1] = off
+                amps[src][idx + 1] = 0.
 
 #            print(i+1, lbl, start_t + sample_dt * i, on, start_t +  sample_dt * i + sup_dt, off)
 

@@ -48,9 +48,9 @@ INPUT_DIVS = (3, 5)
 # INPUT_DIVS = (2, 2)
 # INPUT_DIVS = (1, 1)
 # INPUT_DIVS = (2, 3)
-N_CLASSES = 14 if DEBUG else 14
+N_CLASSES = 14 if DEBUG else 3
 N_SAMPLES = 14 if DEBUG else 14
-N_EPOCHS = 10 if DEBUG else 2
+N_EPOCHS = 10 if DEBUG else 5
 N_TEST = 6 if DEBUG else 6
 TOTAL_SAMPLES = N_SAMPLES * N_EPOCHS + N_TEST
 DURATION = N_CLASSES * TOTAL_SAMPLES * SAMPLE_DT
@@ -63,10 +63,10 @@ GAIN_CONTROL = bool(1)
 INH_INPUT = bool(1)
 SUPERVISION = bool(1) and (not TEST_MUSHROOM) 
 
-
-SUP_DURATION = 10 # ms
-SUP_CORRECT_AMPLITUDE = 0.2 # nA ?
-SUP_WRONG_AMPLITUDE = -0.01 # nA ?
+SUP_DELAY = 5 # ms
+SUP_DURATION = 15 # ms
+SUP_CORRECT_AMPLITUDE = 1. # nA ?
+SUP_WRONG_AMPLITUDE = -0.2 # nA ?
 
 KERNEL_W = 7
 N_INPUT_LAYERS = 4
@@ -79,34 +79,34 @@ if ONE_TO_ONE_EXCEPTION:
     EXPANSION_RANGE = (1., 1.0000000000000000000001)
 else:
     # EXPANSION_RANGE = (10., 10.0001) if DEBUG else (0.25, 11.0)
-    EXPANSION_RANGE = (20., 21.0) if DEBUG else (40, )#(5, 40)
+    EXPANSION_RANGE = (20., 21.0) if DEBUG else (10, )#(5, 40)
 
 
 EXP_PROB_RANGE = (0.5, 0.75000001) if DEBUG else (3,)# 65)#0.025, 0.25)
 
-MUSH_MAX = 3.2 / float(EXP_PROB_RANGE[0])
+MUSH_MAX = 3.2 #/ float(EXP_PROB_RANGE[0])
 
 if ONE_TO_ONE_EXCEPTION:
     MUSHROOM_WEIGHT_RANGE = (5.0, 5.0000000001)
 else:
-    MUSHROOM_WEIGHT_RANGE = (1.0, 5.0000001) if DEBUG else (MUSH_MAX * 1.2, )# (0.001, MUSH_MAX)
+    MUSHROOM_WEIGHT_RANGE = (1.0, 5.0000001) if DEBUG else  (1., MUSH_MAX)
 # MUSHROOM_WEIGHT_RANGE = (0.50, 0.500000001) if DEBUG else (0.05, 1.0)
 # MUSHROOM_WEIGHT_RANGE = (0.025, 0.02500001) if DEBUG else (0.05, 1.0) ### for (64,64)
 
-MAX_PRE_OUTPUT = 10000
+MAX_PRE_OUTPUT = 40000
 
 OUTPUT_PROB_RANGE = (0.5, 0.750000001) if DEBUG else (0.01, )#0.5)
 # OUT_WEIGHT_RANGE = (0.1, 0.100000001) if DEBUG else (1.0, 5.0)
 if ONE_TO_ONE_EXCEPTION:
     OUT_WEIGHT_RANGE = (0.1, 0.1000000001)
 else:
-    OUT_WEIGHT_RANGE = (2.0, 5.000000001) if DEBUG else (0.1, 3.2)# (0.01, 0.5)
+    OUT_WEIGHT_RANGE = (2.0, 5.000000001) if DEBUG else (0.1, 1.2)# (0.01, 0.5)
 # OUT_WEIGHT_RANGE = (1.5, 1.500001) if DEBUG else (0.01, 0.5) ### 64x64
 
 
-A_PLUS = (0.1, 5.0000000001) if DEBUG else (0.001,)# 10.0)
-A_MINUS = (0.1, 1.000000001) if DEBUG else (0.001,)# 10.0)
-CONN_DIST = (5, 15) if DEBUG else (2,)# 16)#(1, 15)
+A_PLUS = (0.1, 5.0000000001) if DEBUG else (0.001, 1.0)
+A_MINUS = (0.1, 1.000000001) if DEBUG else (0.001, 1.0)
+CONN_DIST = (5, 15) if DEBUG else (1,)# 16)#(1, 15)
 
 
 STD_DEV = (3.0, 3.00000001) if DEBUG else (0.5, 5.0)
@@ -403,9 +403,9 @@ TIME_DEP = 'MyTemporalDependence'
 TIME_DEP_VARS = {
     "A_plus": 0.10,
     "A_minus": 0.01,
-    "tau_plus": 10.0,
-    "tau_plus1": 10.0,
-    "tau_minus": 60.0,
+    "tau_plus": 5.0,
+    "tau_plus1": 5.0,
+    "tau_minus": 80.0,
     "max_learn_t": N_CLASSES * N_SAMPLES * SAMPLE_DT * N_EPOCHS + 1.0,
 }
 

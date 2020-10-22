@@ -380,8 +380,10 @@ class OmniglotOptimizee(Optimizee):
         data['fitness1'] = fit01
 
         if not config.TEST_MUSHROOM:
+            wout = data['params']['ind']['out_weight']
+            wmush = data['params']['ind']['mushroom_weight']
             fit0 = (avg_class_sample_distance - avg_activity_error 
-                    - avg_sharing_class_error - avg_freq_error)
+                    - avg_sharing_class_error - avg_freq_error - wout - wmush)
         else:
             wmush = data['params']['ind']['mushroom_weight']
         #fit0 = - avg_activity_error - avg_sharing_class_error - avg_freq_error
