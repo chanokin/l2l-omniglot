@@ -142,7 +142,7 @@ for delay in experiments:
     dt_dw = experiments[delay]
     dts = sorted(dt_dw.keys())
     dws = [dt_dw[dt] for dt in dts]
-    plt.plot(dts, dws, label='{}ms delay'.format(delay))
+    plt.plot(dts, dws, '.', label='{}ms delay'.format(delay))
 
 max_dw = np.max(np.abs(dws)) * 1.5
 # ax.set_ylim(-max_dw, max_dw)

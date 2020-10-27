@@ -174,7 +174,7 @@ class MyTemporalDependence(synapses.STDPTimingDependence):
         // std::cout << "t [" << $(t) << "]" << std::endl;
         if( $(max_t) < 0.0 || $(t) <= $(max_t) ){
             // std::cout << "t [" << $(t) << "] <= max_t [" << $(max_t) << "]" << std::endl;
-            if (dt >= 0){
+            if (dt > 0){
                 scalar update = 0.0;
                 if (dt <= $(tau_plus)){
                     update = ($(tau_plus) - dt) * ($(Aplus) - $(Aminus)) / $(tau_plus);
